@@ -80,22 +80,57 @@ function airswift_payment_init() {
             }
 
             public function process_payment( $order_id ) {
+                // TODO: Update backend order status.
                 // Get order information and update order status.
                 $order = wc_get_order($order_id);
                 $order->update_status('processing',  __( 'Awaiting Airswift Payment', 'airswift-pay-woo'));
 
-                // Add API here:
+                // TODO: Get valid appKey.
+                $appKey = '2f678c1e-72e7-47cf-904e-3be6cbed0fae';
+                $nonce = mt_rand(100000,999999);
+                $timestamp = floor(microtime(true) * 1000);
+                // TODO: Calculate sign with valid appKey.
+                // Sign calculation: Md5.md5Digest($appKey+$nonce+$timestamp+$coinUnit+$amount+$clientOrderSn+$basicsType+$tradeType+$appSecret);
+                $sign = '0F2590EE3F4435F8723D9E9E047C3CB6';
 
+                // // Add API here:
+                $url = `https://order.airswift.io/docking/order/create?appKey=$appKey&sign=$sign&timestamp=$timestamp&nonce=$nonce`;
 
-                // Reduce instock product # and emtpy user's cart.
-                $order->reduce_order_stock();
-                WC()->cart->empty_cart();
-
-                return array(
-                    'result'   => 'success',
-                    // 'redirect' => $this->get_return_url($order),
-                    'redirect' => 'https://order.airswift.io/order/index.html?orderSn=orderSn:611835414564093952&amount=99.00000000&fee=0E-8'
+                $data = array(
+                    'clientOrderSn' => $order_id,
+                    'tradeType' => 0,
+                    'coinUnit' => 'USDT',
+                    'basicsType' => 1,
+                    'amount' => (float)$order->get_total(),
+                    'remarks' => $order->customer_note,
                 );
+
+                $options = array(
+                    'http' => array(
+                        'header'  => "Content-type: application/json;charset=UTF-8",
+                        'method'  => 'POST',
+                        'content' => json_encode($data),
+                    )
+                );
+
+                $context  = stream_context_create($options);
+                $result = file_get_contents($url, false, $context);
+                $php_result = json_decode($result);
+
+                if ($php_result->code === 200) {
+                    // Reduce instock product # and emtpy user's cart.
+                    $order->reduce_order_stock();
+                    WC()->cart->empty_cart();
+
+                    return array(
+                        'result'   => 'success',
+                        // 'redirect' => $php_result->url
+                        // 'redirect' => $this->get_return_url($order)
+                        // 'redirect' => 'https://order.airswift.io/order/index.html?orderSn=orderSn:611835414564093952&amount=99.00000000&fee=0E-8'
+                    );
+                } else {
+                    echo $php_result->message;
+                }
             }
 
             public function thank_you_page(){
