@@ -80,29 +80,41 @@ function airswift_payment_init() {
             }
 
             public function process_payment( $order_id ) {
-                // TODO: Update backend order status.
-                // Get order information and update order status.
                 $order = wc_get_order($order_id);
                 $order->update_status('processing',  __( 'Awaiting Airswift Payment', 'airswift-pay-woo'));
 
-                // TODO: Get valid appKey.
-                $appKey = '2f678c1e-72e7-47cf-904e-3be6cbed0fae';
-                $nonce = mt_rand(100000,999999);
-                $timestamp = floor(microtime(true) * 1000);
-                // TODO: Calculate sign with valid appKey.
-                // Sign calculation: Md5.md5Digest($appKey+$nonce+$timestamp+$coinUnit+$amount+$clientOrderSn+$basicsType+$tradeType+$appSecret);
-                $sign = '0F2590EE3F4435F8723D9E9E047C3CB6';
+                // // Create new order data in backend.
+                $url = 'http://52.90.195.248:8080/order';
 
-                // // Add API here:
-                $url = `https://order.airswift.io/docking/order/create?appKey=$appKey&sign=$sign&timestamp=$timestamp&nonce=$nonce`;
+                $tradeType = 0;
+                $basicsType = 1;
+                $currency_unit = "USDT";
+                $nonce = mt_rand(100000,999999);
+                $customer_id = $order->customer_id;
+                $order_note = $order->customer_note;
+                $timestamp = floor(microtime(true) * 1000);
+                $total_amount = (float)$order->get_total();
+                $appKey = 'c6bd0d9e-8f52-4a5d-b014-5f56569cc48e';
+                $appSecret = '71650710-97aa-4511-8ff7-4ab0a9eaf6a7';
+                $hash_value = md5($appKey+$nonce+$timestamp+$coinUnit+$amount+$clientOrderSn+$basicsType+$tradeType+$appSecret);
 
                 $data = array(
-                    'clientOrderSn' => $order_id,
-                    'tradeType' => 0,
-                    'coinUnit' => 'USDT',
-                    'basicsType' => 1,
-                    'amount' => (float)$order->get_total(),
-                    'remarks' => $order->customer_note,
+                    "id" => $order_id,
+                    "orderSn" => (string) $order_id,
+                    "clientOrderSn" => (string) $order_id,
+                    "tradeType" => $tradeType,
+                    "coinUnit" => $currency_unit,
+                    "address" => "",
+                    "amount" => (string) $total_amount,
+                    "fee" => "",
+                    "cnyAmount" => $total_amount,
+                    "rate" => "",
+                    "remarks" => $order_note,
+                    "status" => 0,
+                    "createTime" => $timestamp,
+                    "payTime" => null,
+                    "cancelTime" => null,
+                    "sign" => $hash_value,
                 );
 
                 $options = array(
@@ -112,24 +124,46 @@ function airswift_payment_init() {
                         'content' => json_encode($data),
                     )
                 );
-
-                $context  = stream_context_create($options);
+                $context = stream_context_create($options);
                 $result = file_get_contents($url, false, $context);
-                $php_result = json_decode($result);
 
-                if ($php_result->code === 200) {
-                    // Reduce instock product # and emtpy user's cart.
-                    $order->reduce_order_stock();
-                    WC()->cart->empty_cart();
+                if ($result !== FALSE) {
+                    $url = "https://order.airswift.io/docking/order/create?appKey={$appKey}&sign={$hash_value}&timestamp={$timestamp}&nonce={$nonce}";
 
-                    return array(
-                        'result'   => 'success',
-                        // 'redirect' => $php_result->url
-                        // 'redirect' => $this->get_return_url($order)
-                        // 'redirect' => 'https://order.airswift.io/order/index.html?orderSn=orderSn:611835414564093952&amount=99.00000000&fee=0E-8'
+                    $data = array(
+                        'clientOrderSn' => (string) $order_id,
+                        'tradeType' => $tradeType,
+                        'coinUnit' => $currency_unit,
+                        'basicsType' => $basicsType,
+                        'amount' => $total_amount,
+                        'remarks' => $order_note,
                     );
-                } else {
-                    echo $php_result->message;
+    
+                    $options = array(
+                        'http' => array(
+                            'header'  => "Content-type: application/json;charset=UTF-8",
+                            'method'  => 'POST',
+                            'content' => json_encode($data),
+                        )
+                    );
+    
+                    $context  = stream_context_create($options);
+                    $result = file_get_contents($url, false, $context);
+                    $php_result = json_decode($result);
+
+                    if ($php_result->code === 200) {
+                        $order->reduce_order_stock();
+                        WC()->cart->empty_cart();
+    
+                        return array(
+                            'result'   => 'success',
+                            // 'redirect' => $php_result->url
+                            // 'redirect' => $this->get_return_url($order)
+                            // 'redirect' => 'https://order.airswift.io/order/index.html?orderSn=orderSn:611835414564093952&amount=99.00000000&fee=0E-8'
+                        );
+                    } else {
+                        echo $php_result->message;
+                    }
                 }
             }
 
