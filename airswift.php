@@ -96,7 +96,7 @@ function airswift_payment_init() {
                 $total_amount = (float)$order->get_total();
                 $appKey = 'c6bd0d9e-8f52-4a5d-b014-5f56569cc48e';
                 $appSecret = '71650710-97aa-4511-8ff7-4ab0a9eaf6a7';
-                $hash_value = md5($appKey+$nonce+$timestamp+$coinUnit+$amount+$clientOrderSn+$basicsType+$tradeType+$appSecret);
+                $hash_value = md5("{$appKey}{$nonce}{$timestamp}{$currency_unit}{$total_amount}{$order_id}{$basicsType}{$tradeType}{$appSecret}");
 
                 $data = array(
                     "id" => $order_id,
@@ -157,9 +157,8 @@ function airswift_payment_init() {
     
                         return array(
                             'result'   => 'success',
-                            // 'redirect' => $php_result->url
+                            'redirect' => $php_result->data,
                             // 'redirect' => $this->get_return_url($order)
-                            // 'redirect' => 'https://order.airswift.io/order/index.html?orderSn=orderSn:611835414564093952&amount=99.00000000&fee=0E-8'
                         );
                     } else {
                         echo $php_result->message;
