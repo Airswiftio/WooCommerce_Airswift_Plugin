@@ -83,8 +83,7 @@ function airswift_payment_init() {
                 $order = wc_get_order($order_id);
                 $order->update_status('processing',  __( 'Awaiting Airswift Payment', 'airswift-pay-woo'));
 
-                // // Create new order data in backend.
-                $url = 'http://52.90.195.248:8080/order';
+                $url = 'http://54.173.63.102:8080/order';
 
                 $tradeType = 0;
                 $basicsType = 1;
@@ -99,22 +98,22 @@ function airswift_payment_init() {
                 $hash_value = md5("{$appKey}{$nonce}{$timestamp}{$currency_unit}{$total_amount}{$order_id}{$basicsType}{$tradeType}{$appSecret}");
 
                 $data = array(
-                    "id" => $order_id,
-                    "orderSn" => (string) $order_id,
+                    "id"            => 0, //Update after payment
+                    "orderSn"       => "", //Update after payment
                     "clientOrderSn" => (string) $order_id,
-                    "tradeType" => $tradeType,
-                    "coinUnit" => $currency_unit,
-                    "address" => "",
-                    "amount" => (string) $total_amount,
-                    "fee" => "",
-                    "cnyAmount" => $total_amount,
-                    "rate" => "",
-                    "remarks" => $order_note,
-                    "status" => 0,
-                    "createTime" => $timestamp,
-                    "payTime" => null,
-                    "cancelTime" => null,
-                    "sign" => $hash_value,
+                    "tradeType"     => $tradeType,
+                    "coinUnit"      => $currency_unit,
+                    "address"       => "", //Update after payment
+                    "amount"        => (string) $total_amount,
+                    "fee"           => 0,  //Update after payment
+                    "cnyAmount"     => 0,  //Update after payment
+                    "rate"          => "", //Update after payment
+                    "remarks"       => $order_note,
+                    "status"        => 0,
+                    "createTime"    => $timestamp,
+                    "payTime"       => null, //Update after payment
+                    "cancelTime"    => null, //Update after payment
+                    "sign"          => $hash_value,
                 );
 
                 $options = array(
@@ -154,11 +153,11 @@ function airswift_payment_init() {
                     if ($php_result->code === 200) {
                         $order->reduce_order_stock();
                         WC()->cart->empty_cart();
-    
+
                         return array(
                             'result'   => 'success',
                             'redirect' => $php_result->data,
-                            // 'redirect' => $this->get_return_url($order)
+                            // Redirects to the order confirmation page: 'redirect' => $this->get_return_url($order)
                         );
                     } else {
                         echo $php_result->message;
