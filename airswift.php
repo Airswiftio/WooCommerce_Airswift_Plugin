@@ -83,7 +83,7 @@ function airswift_payment_init() {
                 $order = wc_get_order($order_id);
                 $order->update_status('processing',  __( 'Awaiting Airswift Payment', 'airswift-pay-woo'));
 
-                $url = 'http://54.173.63.102:8080/order';
+                $url = 'http://47.252.21.231:8080/order';
 
                 $tradeType = 0;
                 $basicsType = 1;
@@ -157,7 +157,8 @@ function airswift_payment_init() {
                         return array(
                             'result'   => 'success',
                             'redirect' => $php_result->data,
-                            // Redirects to the order confirmation page: 'redirect' => $this->get_return_url($order)
+                            // Redirects to the order confirmation page:
+                            // 'redirect' => $this->get_return_url($order)
                         );
                     } else {
                         echo $php_result->message;
