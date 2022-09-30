@@ -50,7 +50,6 @@ if(!is_plugin_active( 'woocommerce/woocommerce.php' ))
 
 // Once WooCommerce is loaded, initialize the AirSwift plugin.
 add_action( 'plugins_loaded', 'airswift_payment_init', 11 );
-
 function airswift_payment_init() {
     if( class_exists( 'WC_Payment_Gateway' ) ) {
         class WC_AirSwift_Pay_Gateway extends WC_Payment_Gateway {
@@ -203,8 +202,6 @@ function airswift_payment_init() {
              */
             public function successful_request()
             {
-                global $woocommerce;
-
                 $rjson = file_get_contents('php://input');
                 $rdata = json_decode($rjson, true);
 
@@ -265,8 +262,7 @@ function airswift_payment_init() {
 //                $customer_id = $order->customer_id;
 //                $order_note = $order->customer_note;
                 $timestamp = floor(microtime(true) * 1000);
-                $total_amount = $order->get_total();//todo 正式
-//                $total_amount = 0.01;
+                $total_amount = $order->get_total();
                 $appSecret = $this->appSecret;
                 $clientOrderSn = $order_id;
                 $hash_value = md5($appKey.$nonce.$timestamp.$currency_unit.$total_amount.$order_id.$basicsType.$tradeType.$appSecret);
@@ -315,17 +311,6 @@ function airswift_payment_init() {
              */
             public function check_ipn_response()
             {
-                $url = "http://bp.rome9.com/api-xielog";
-                $json = file_get_contents('php://input');
-                $data = json_decode($json, true);
-                $options = array(
-                    'http' => array(
-                        'header'  => "Content-type: application/json;charset=UTF-8",
-                        'method'  => 'POST',
-                        'content' => json_encode($data),
-                    )
-                );
-                $result = file_get_contents($url, false, stream_context_create($options));
                 @ob_clean();
                 if ($this->check_ipn_request_is_valid()) {
                     $this->successful_request();
