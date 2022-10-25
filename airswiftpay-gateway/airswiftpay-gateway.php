@@ -57,6 +57,7 @@ function airswift_payment_init() {
 
             public function __construct() {
                 $this->id   = 'airswift_payment';
+//                $this->icon = '/wp-content/plugins/boundarypay-gateway/static/images/bp-logo-small.png'; // 将显示在结帐页面上您的网关名称附近的图标的URL
                 // $this->icon = apply_filters( 'woocommerce_airswift_icon', plugins_url('https://www.mars.cloud/images/logo2.svg', __FILE__ ) );
                 $this->has_fields = false;
                 $this->method_title = __( 'AirSwift Payment', 'airswift-pay-woo');
@@ -77,6 +78,26 @@ function airswift_payment_init() {
                 add_action( 'woocommerce_thank_you_' . $this->id, array( $this, 'thank_you_page' ) );
                 add_action('woocommerce_api_wc_airswiftpay_gateway', array($this, 'check_ipn_response'));
 
+            }
+
+            /**
+             * Get gateway icon.
+             * @return string
+             */
+            public function get_icon():string {
+                /*if ( $this->get_option( 'show_icons' ) === 'no' ) {
+                    return '';
+                }*/
+
+                $icon_html  = '';
+                $methods    = array( 'bitcoin', 'bitcoincash', 'ethereum', 'litecoin', 'usdc' );
+
+                // Load icon for each available payment method.
+                foreach ( $methods as $m ) {
+                    $icon_html .= '<img width="26" src="' . plugins_url( '/assets/images/' . $m . '.png', __FILE__ ) . '" alt="' . esc_attr__( $m, 'airswift' ) . '" />';
+                }
+
+                return apply_filters( 'woocommerce_gateway_icon', $icon_html, $this->id );
             }
 
             // Plugin Contents - Can be access through WooCommerce/Settings/Payment
@@ -233,13 +254,13 @@ function airswift_payment_init() {
             public function process_payment( $order_id ):array {
                 $order = wc_get_order($order_id);
 
-                //At present, the AirSwift payment gateway only supports the conversion of USD to cryptocurrencies, so it is necessary to determine
-                $paymentCurrency = strtolower($order->get_currency());
-                if($paymentCurrency !== 'usd'){
-                    $msg = "AirSwift Payment gateway only supports USD!";
-                    $order->add_order_note($msg);
-                    return ['result'=>'success', 'messages'=>home_notice($msg)];
-                }
+//                //At present, the AirSwift payment gateway only supports the conversion of USD to cryptocurrencies, so it is necessary to determine
+//                $paymentCurrency = strtolower($order->get_currency());
+//                if($paymentCurrency !== 'usd'){
+//                    $msg = "AirSwift Payment gateway only supports USD!";
+//                    $order->add_order_note($msg);
+//                    return ['result'=>'success', 'messages'=>home_notice($msg)];
+//                }
 
                 //Check whether the appKey and appSecret is configured
                 if(empty($this->appKey)){
@@ -252,6 +273,18 @@ function airswift_payment_init() {
                     $order->add_order_note($msg);
                     return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
                 }
+                $total_amount = $order->get_total();
+                $paymentCurrency = strtolower($order->get_currency());
+                //Currency exchange rate conversion, all currencies are converted to USD
+                if($paymentCurrency !== 'usd'){
+                    //all currencies are converted to USD
+                    $res = currency_conversion(strtoupper($paymentCurrency),$total_amount,$order_id);
+                    if(isset($res['code']) && $res['code'] === -1){
+                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                        //return $res;
+                    }
+                    $total_amount = $res;
+                }
 
                 //Create payment
                 $appKey = $this->appKey;
@@ -262,7 +295,6 @@ function airswift_payment_init() {
 //                $customer_id = $order->customer_id;
 //                $order_note = $order->customer_note;
                 $timestamp = floor(microtime(true) * 1000);
-                $total_amount = $order->get_total();
                 $appSecret = $this->appSecret;
                 $clientOrderSn = $order_id;
                 $hash_value = md5($appKey.$nonce.$timestamp.$currency_unit.$total_amount.$order_id.$basicsType.$tradeType.$appSecret);
@@ -351,4 +383,197 @@ if (!function_exists('home_notice')){
 <div class="woocommerce-error">'.$msg.'</div>
 </div>';
     }
+}
+
+if (!function_exists('chttp')) {
+    function chttp($d = [])
+    {
+        $mrd = ['url' => '', 'do' => '', 'tz' => '', 'data' => '', 'ref' => '', 'llq' => '', 'qt' => '', 'cookie' => '', 'time' => '', 'daili' => [], 'headon' => '', 'code' => '', 'nossl' => '', 'to_utf8' => '', 'gzip' => '', 'port' => ''];
+        $d = array_merge($mrd, $d);
+
+        $url = $d['url'];
+        if ($url == "") {
+            exit("URL不能为空!");
+        }
+        $header = [];
+
+        if ($d['llq']) {
+            $header[] = "User-Agent:" . $d['agent'];
+        } else {
+            $header[] = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64)AppleWebKit/537.36 (KHTML, like Gecko)Chrome/63.0.3239.26 Safari/537.36';
+        }
+        if ($d['ref']) {
+            $header[] = "Referer:" . $d['ref'];
+        }
+
+        $ch = curl_init($url);
+        if ($d['port'] != '') {
+            curl_setopt($ch, CURLOPT_PORT, intval($d['port']));
+        }
+        //cookie 文件/文本
+        if ($d['cookie'] != "") {
+            if (substr($d['cookie'], -4) == ".txt") {
+                //文件不存在则生成
+                if (!wjif($d['cookie'])) {
+                    wjxie($d['cookie'], '');
+                }
+                $d['cookie'] = realpath($d['cookie']);
+                curl_setopt($ch, CURLOPT_COOKIEJAR, $d['cookie']);
+                curl_setopt($ch, CURLOPT_COOKIEFILE, $d['cookie']);
+            } else {
+                $cookie = 'cookie: ' . $d['cookie'];
+                $header[] = $cookie;
+            }
+        }
+
+        //附加头信息
+        if ($d['qt']) {
+            foreach ($d['qt'] as $v) {
+                $header[] = $v;
+            }
+        }
+        //代理
+        if (count($d['daili']) == 2) {
+            curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+            curl_setopt($ch, CURLOPT_PROXY, $d['daili'][0]);
+            curl_setopt($ch, CURLOPT_PROXYAUTH, CURLAUTH_BASIC);
+            curl_setopt($ch, CURLOPT_PROXYUSERPWD, $d['daili'][1]);
+        }
+
+        $postData = $d['data'];
+        $timeout = $d['time'] == "" ? 10 : ints($d['time'], 10);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+
+        if ($d['gzip'] != "0") {
+            curl_setopt($ch, CURLOPT_ENCODING, "gzip");
+        }
+
+        //跳转跟随
+        if ($d['tz'] == "0") {
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+        } else {
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+        }
+
+        //SSL
+        if (substr($url, 0, 8) === 'https://' || $d['nossl'] == "1") {
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        }
+
+        //请求方式
+        if (in_array(strtoupper($d['do']), ['DELETE', 'PUT'])) {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($d['do']));
+        } else {
+            //POST数据
+            if (!empty($postData)) {
+                if (is_array($postData)) {
+                    $postData = http_build_query($postData);
+                }
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+            } //POST空内容
+            elseif (strtoupper($d['do']) == "POST") {
+                curl_setopt($ch, CURLOPT_POST, 1);
+            }
+        }
+        if ($d['headon'] == "1") {
+            curl_setopt($ch, CURLOPT_HEADER, 1);
+        }
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+        //超时时间
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, (int)$timeout);
+        curl_setopt($ch, CURLOPT_TIMEOUT, (int)$timeout);
+
+        //执行
+        $content = curl_exec($ch);
+        if ($d['to_utf8'] != "0") {
+            $content = to_utf8($content);
+        }
+
+        //是否返回状态码
+        if ($d['code'] == "1") {
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $content = [$httpCode, $content];
+        }
+
+        curl_close($ch);
+        return $content;
+    }
+}
+
+if (!function_exists('to_utf8')) {
+    function to_utf8($data = '')
+    {
+        if (!empty($data)) {
+            if (is_array($data)) {
+                foreach ($data as $key => $value) {
+                    $data[$key] = to_utf8($value);
+                }
+                return $data;
+            } else {
+                $fileType = mb_detect_encoding($data, ['UTF-8', 'GBK', 'LATIN1', 'BIG5']);
+                if ($fileType != 'UTF-8') {
+                    $data = mb_convert_encoding($data, 'utf-8', $fileType);
+                }
+            }
+        }
+        return $data;
+    }
+}
+
+function currency_conversion($currencyCode,$total_amount,$order_id = 0)
+{
+    /* // api.5
+     $d1 = [
+         'do'=>'GET',
+         'url'=>"https://api.apilayer.com/exchangerates_data/convert?to=USD&from={$currencyCode}&amount={$total_amount}",
+         'qt'=>[
+             'apikey: vIc43zNe7qA5yVPpAb560Uo4wXnPhrdA',
+             'Content-Type: text/plain'
+         ]
+     ];
+     $res = json_decode(chttp($d1),true);
+     if($res['success'] === true){
+         return $res['result'];
+     }
+     else {
+         return ['code'=>-1,'msg'=>'Currency exchange rate conversion failed!','data'=>[]];
+     }*/
+
+    // api.7
+    $d = [
+        'do'=>'GET',
+        'url'=>"https://marketdata.tradermade.com/api/v1/convert?api_key=2GGANIjul2_ZY6hPd_4c&from={$currencyCode}&to=USD&amount=1",
+    ];
+    $res = json_decode(chttp($d),true);
+    if(isset($res['total'])){
+        return $res['total'] * $total_amount;
+    }
+    else{
+        return ['code'=>-1,'msg'=>'Currency exchange rate conversion failed!','data'=>[]];
+    }
+    /*
+        // api.11
+        $d = [
+            'do'=>'POST',
+            'url'=>'https://neutrinoapi.net/convert',
+            'data'=>[
+                'from-value'=>$total_amount,
+                'from-type'=>$currencyCode,
+                'to-type'=>"USD",
+            ],
+            'qt'=>[
+                'user-id: 644577519@qq.com',
+                'api-key: VzLCqZFwsJVqo2BlcICVMcP06u7PmLhsMT5YzlnDSUq3iHTL',
+            ]
+        ];
+        $res = json_decode(chttp($d),true);
+        if($res['valid'] === true){
+            return $res['result'];
+        }
+        else{
+            return ['code'=>-1,'msg'=>'Currency exchange rate conversion failed!','data'=>[]];
+        }*/
 }
