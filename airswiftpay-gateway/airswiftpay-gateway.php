@@ -57,8 +57,7 @@ function airswift_payment_init() {
 
             public function __construct() {
                 $this->id   = 'airswift_payment';
-//                $this->icon = '/wp-content/plugins/boundarypay-gateway/static/images/bp-logo-small.png'; // 将显示在结帐页面上您的网关名称附近的图标的URL
-                // $this->icon = apply_filters( 'woocommerce_airswift_icon', plugins_url('https://www.mars.cloud/images/logo2.svg', __FILE__ ) );
+//                $this->icon = apply_filters( 'woocommerce_airswift_icon',plugins_url('assets/airswift_logo.png', __FILE__ ) );
                 $this->has_fields = false;
                 $this->method_title = __( 'AirSwift Payment', 'airswift-pay-woo');
                 $this->method_description = __( 'AirSwift QR code digital payment method.', 'airswift-pay-woo');
@@ -85,19 +84,8 @@ function airswift_payment_init() {
              * @return string
              */
             public function get_icon():string {
-                /*if ( $this->get_option( 'show_icons' ) === 'no' ) {
-                    return '';
-                }*/
-
-                $icon_html  = '';
-                $methods    = array( 'bitcoin', 'bitcoincash', 'ethereum', 'litecoin', 'usdc' );
-
-                // Load icon for each available payment method.
-                foreach ( $methods as $m ) {
-                    $icon_html .= '<img width="26" src="' . plugins_url( '/assets/images/' . $m . '.png', __FILE__ ) . '" alt="' . esc_attr__( $m, 'airswift' ) . '" />';
-                }
-
-                return apply_filters( 'woocommerce_gateway_icon', $icon_html, $this->id );
+                $icon = apply_filters( 'woocommerce_airswift_icon','<img width="40" src="' . plugins_url('assets/airswift_logo.png', __FILE__ ) . '" alt="' . esc_attr__( 'airswift_logo', 'airswift' ) . '" />' ,$this->id);
+                return $icon;
             }
 
             // Plugin Contents - Can be access through WooCommerce/Settings/Payment
