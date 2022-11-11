@@ -273,6 +273,7 @@ function airswift_payment_init() {
                     }
                     $total_amount = $res;
                 }
+                $total_amount= 0.05;
 
                 //Create payment
                 $appKey = $this->appKey;
