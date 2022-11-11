@@ -84,7 +84,7 @@ function airswift_payment_init() {
              * @return string
              */
             public function get_icon():string {
-                $icon = apply_filters( 'woocommerce_airswift_icon','<img width="40" src="' . plugins_url('assets/airswift_logo.png', __FILE__ ) . '" alt="' . esc_attr__( 'airswift_logo', 'airswift' ) . '" />' ,$this->id);
+                $icon = apply_filters( 'woocommerce_airswift_icon','<img width="40" src="' . plugins_url('assets/airswift_logo1.png', __FILE__ ) . '" alt="' . esc_attr__( 'airswift_logo', 'airswift' ) . '" />' ,$this->id);
                 return $icon;
             }
 
