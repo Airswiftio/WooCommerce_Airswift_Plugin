@@ -214,6 +214,7 @@ function airswift_payment_init() {
                 $rjson = file_get_contents('php://input');
                 $rdata = json_decode($rjson, true);
 
+                //todo 888 回调信息要给出订单支付状态 部分支付和超额支付
                 $valid_order_id = $rdata["clientOrderSn"];
                 $order = new WC_Order($valid_order_id);
                 if ($rdata["status"] == 1) {
@@ -242,13 +243,90 @@ function airswift_payment_init() {
             public function process_payment( $order_id ):array {
                 $order = wc_get_order($order_id);
 
-//                //At present, the AirSwift payment gateway only supports the conversion of USD to cryptocurrencies, so it is necessary to determine
-//                $paymentCurrency = strtolower($order->get_currency());
-//                if($paymentCurrency !== 'usd'){
-//                    $msg = "AirSwift Payment gateway only supports USD!";
-//                    $order->add_order_note($msg);
-//                    return ['result'=>'success', 'messages'=>home_notice($msg)];
-//                }
+                //Check whether the appKey and appSecret is configured
+                if(empty($this->appKey)){
+                    $msg = "AirSwiftPay's appKey is not set!";
+                    $order->add_order_note($msg);
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                }
+                if(empty($this->appSecret)){
+                    $msg = "AirSwiftPay's appSecret is not set!";
+                    $order->add_order_note($msg);
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                }
+                $total_amount = $order->get_total();
+                $paymentCurrency = strtolower($order->get_currency());
+                $d = [
+                    'do'=>'POST',
+                    'url'=>"https://shopify.airswift.io/api/currency_to_usd",
+                    'data'=>[
+                        'order_id'=>$order_id,
+                        'currencyCode'=>$paymentCurrency,
+                        'total_amount'=>$total_amount,
+                    ]
+                ];
+                $res = json_decode(chttp($d),true);
+                if(!isset($res['code']) || $res['code'] !== 1){
+                    $order->add_order_note($res['msg']);
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                }
+                $total_amount = $res['data'];
+
+                //pre pay
+                $appKey = $this->appKey;
+                $tradeType = 0;
+                $basicsType = 1;
+                $currency_unit = "USDT";
+                $nonce = mt_rand(100000,999999);
+//                $customer_id = $order->customer_id;
+//                $order_note = $order->customer_note;
+                $timestamp = floor(microtime(true) * 1000);
+                $appSecret = $this->appSecret;
+                $clientOrderSn = $order_id;
+                $sign = md5($appKey.$nonce.$timestamp.$currency_unit.$total_amount.$order_id.$basicsType.$tradeType.$appSecret);
+                $data = [
+                    'appKey' => $appKey,
+                    'order_id' => $order_id,
+                    'appSecret' => $appSecret,
+                    'sign' => $sign,
+                    'timestamp' => $timestamp,
+                    'nonce' => $nonce,
+                    'clientOrderSn' => $clientOrderSn,
+                    'tradeType' => $tradeType,
+                    'coinUnit' =>$currency_unit,
+                    'basicsType' => $basicsType,
+                    'amount' => $total_amount,
+//                    'remarks' => $order_note,
+                ];
+
+                $d = [
+                    'do'=>'POST',
+                    'url'=>"https://shopify.airswift.io/woo/api-pre-pay",
+                    'data'=>$data
+                ];
+                $res = json_decode(chttp($d),true);
+                if(!isset($res['code']) || $res['code'] !== 1){
+                    $order->add_order_note($res['msg']);
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling3!')];
+                }
+                else{
+                    if($res['data']['status'] === 'not_started'){
+                        $order->update_status('processing',  __( 'Awaiting AirSwift Payment', 'airswift-pay-woo'));
+                    }
+//                    $order->reduce_order_stock();
+//                    WC()->cart->empty_cart();
+                    return array(
+                        'result'   => 'success',
+                        'redirect' => $res['data']['url'],
+                        // Redirects to the order confirmation page:
+                        // 'redirect' => $this->get_return_url($order)
+                    );
+                }
+
+            }
+
+            public function process_payment1( $order_id ):array {
+                $order = wc_get_order($order_id);
 
                 //Check whether the appKey and appSecret is configured
                 if(empty($this->appKey)){
@@ -263,6 +341,8 @@ function airswift_payment_init() {
                 }
                 $total_amount = $order->get_total();
                 $paymentCurrency = strtolower($order->get_currency());
+
+
                 //Currency exchange rate conversion, all currencies are converted to USD
                 if($paymentCurrency !== 'usd'){
                     //all currencies are converted to USD
@@ -273,7 +353,7 @@ function airswift_payment_init() {
                     }
                     $total_amount = $res;
                 }
-                $total_amount= 0.05;
+//                $total_amount= 0.05;
 
                 //Create payment
                 $appKey = $this->appKey;
@@ -565,4 +645,12 @@ function currency_conversion($currencyCode,$total_amount,$order_id = 0)
         else{
             return ['code'=>-1,'msg'=>'Currency exchange rate conversion failed!','data'=>[]];
         }*/
+}
+
+function dd(...$v){
+    echo '<pre>';
+    var_dump($v);
+    echo '<pre/>';
+    die;
+
 }
