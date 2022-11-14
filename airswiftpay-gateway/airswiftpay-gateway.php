@@ -214,12 +214,48 @@ function airswift_payment_init() {
                 $rjson = file_get_contents('php://input');
                 $rdata = json_decode($rjson, true);
 
+                writeLog($rdata);
                 //todo 888 回调信息要给出订单支付状态 部分支付和超额支付
-                $valid_order_id = $rdata["clientOrderSn"];
-                $order = new WC_Order($valid_order_id);
+                $order_id = $rdata["clientOrderSn"];
+                $order = new WC_Order($order_id);
                 if ($rdata["status"] == 1) {
-                    $order->update_status('completed', 'Order has been paid.');
-                    exit('SUCCESS');
+                    // payStatus = 0 is pending, 1 is received, 2 is cancel, 3 is not enough payment, 4 is over pay
+                    // Query the order details. When the payStatus is 1 or 4, the order is marked as paid (completed)
+                    $orderSn = $rdata['orderSn'];
+                    $appKey = $this->appKey;
+                    $appSecret = $this->appSecret;
+                    $nonce = mt_rand(100000,999999);
+                    $timestamp = floor(microtime(true) * 1000);
+                    $sign = md5($appKey.$nonce.$timestamp.$appSecret);
+                    $url = "https://order.airswift.io/docking/order/detail/{$orderSn}?appKey={$appKey}&sign={$sign}&timestamp={$timestamp}&nonce={$nonce}";
+                    $d = [
+                        'do'=>'POST',
+                        'url'=>$url,
+                        'data'=>json_encode([]),
+                        'qt'=>[
+                            'Content-type: application/json;charset=UTF-8'
+                        ]
+                    ];
+                    $res1 = json_decode(chttp($d),true);
+                    writeLog($res1);
+                    if($res1['data']['payStatus'] == 1){
+                        $order->update_status('completed', 'Order has been paid.');
+                        exit('SUCCESS');
+                    }
+                    elseif($res1['data']['payStatus'] == 4){
+                        $order->update_status('completed', 'Order has been paid(over pay).');
+                        exit('SUCCESS');
+                    }
+                    elseif($res1['data']['payStatus'] == 3){
+                        $order->update_status('failed', 'Order is failed(not enough payment).');
+//                        $order->add_order_note('Order has been paid(not enough payment).');
+                        exit('SUCCESS');
+                    }
+                    elseif($res1['data']['payStatus'] == 2){
+                    }
+                    else{
+                        $order->update_status('processing', "Order has been paid(waiting).");
+                    }
                 }
                 else if ($rdata["status"] == 2) {
                     $order->update_status('failed', 'Order is failed.');
@@ -229,9 +265,11 @@ function airswift_payment_init() {
                     $order->update_status('cancelled', 'Order is cancelled.');
                     exit('SUCCESS');
                 }
-
-                $order->add_order_note('AirSwiftPay Payment Status: ' . $rdata["status"]);
-                exit('failed');
+                else{
+//                    $order->add_order_note('AirSwiftPay PaymentGateWay Error:AirSwiftPay Payment Status: ' . $rdata["status"]);
+                    $order->add_order_note('AirSwiftPay PaymentGateWay Error : please contact the provider !');
+                    exit('failed');
+                }
             }
 
             public function thank_you_page(){
@@ -311,7 +349,7 @@ function airswift_payment_init() {
                 }
                 else{
                     if($res['data']['status'] === 'not_started'){
-                        $order->update_status('processing',  __( 'Awaiting AirSwift Payment', 'airswift-pay-woo'));
+//                        $order->update_status('processing',  __( 'Awaiting AirSwift Payment', 'airswift-pay-woo'));
                     }
 //                    $order->reduce_order_stock();
 //                    WC()->cart->empty_cart();
@@ -653,4 +691,16 @@ function dd(...$v){
     echo '<pre/>';
     die;
 
+}
+
+function writeLog($data){
+    $d = [
+        'do'=>'POST',
+        'url'=>'https://shopify.airswift.io/wlog',
+        'data'=>json_encode($data),
+        'qt'=>[
+            'Content-type: application/json;charset=UTF-8'
+        ]
+    ];
+    chttp($d);
 }
