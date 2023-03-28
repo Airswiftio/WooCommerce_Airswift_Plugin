@@ -223,9 +223,14 @@ function airswift_payment_init() {
                 
 
 //                writeLog($rdata);
-                //todo 888 回调信息要给出订单支付状态 部分支付和超额支付
-                $order_id = $rdata["clientOrderSn"];
+//                $order_id = $rdata["clientOrderSn"];
+                $order_id = explode('_',$rdata['clientOrderSn'])[0];
                 $order = new WC_Order($order_id);
+
+                //If the order has been completed, it is not allowed to modify the order status
+                if($order->get_status() === 'completed'){
+                    exit('SUCCESS');
+                }
                 if ($rdata["status"] == 1) {
                     // payStatus = 0 is pending, 1 is received, 2 is cancel, 3 is not enough payment, 4 is over pay
                     // Query the order details. When the payStatus is 1 or 4, the order is marked as paid (completed)
@@ -372,84 +377,6 @@ function airswift_payment_init() {
 
             }
 
-            public function process_payment1( $order_id ):array {
-                $order = wc_get_order($order_id);
-
-                //Check whether the appKey and appSecret is configured
-                if(empty($this->appKey)){
-                    $msg = "AirSwiftPay's appKey is not set!";
-                    $order->add_order_note($msg);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(5)!')];
-                }
-                if(empty($this->appSecret)){
-                    $msg = "AirSwiftPay's appSecret is not set!";
-                    $order->add_order_note($msg);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(6)!')];
-                }
-                $total_amount = $order->get_total();
-                $paymentCurrency = strtolower($order->get_currency());
-
-
-                //Currency exchange rate conversion, all currencies are converted to USD
-                if($paymentCurrency !== 'usd'){
-                    //all currencies are converted to USD
-                    $res = currency_conversion(strtoupper($paymentCurrency),$total_amount,$order_id);
-                    if(isset($res['code']) && $res['code'] === -1){
-                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(7)!')];
-                        //return $res;
-                    }
-                    $total_amount = $res;
-                }
-//                $total_amount= 0.05;
-
-                //Create payment
-                $appKey = $this->appKey;
-                $tradeType = 0;
-                $basicsType = 1;
-                $currency_unit = "USDT";
-                $nonce = mt_rand(100000,999999);
-//                $customer_id = $order->customer_id;
-//                $order_note = $order->customer_note;
-                $timestamp = floor(microtime(true) * 1000);
-                $appSecret = $this->appSecret;
-                $clientOrderSn = $order_id;
-                $hash_value = md5($appKey.$nonce.$timestamp.$currency_unit.$total_amount.$order_id.$basicsType.$tradeType.$appSecret);
-                $url = "https://order.airswift.io/docking/order/create?appKey=$appKey&sign=$hash_value&timestamp=$timestamp&nonce=$nonce";
-                $data = array(
-                    'clientOrderSn' => $clientOrderSn,
-                    'tradeType' => $tradeType,
-                    'coinUnit' =>$currency_unit,
-                    'basicsType' => $basicsType,
-                    'amount' => $total_amount,
-//                    'remarks' => $order_note,
-                );
-                $options = array(
-                    'http' => array(
-                        'header'  => "Content-type: application/json;charset=UTF-8",
-                        'method'  => 'POST',
-                        'content' => json_encode($data),
-                    )
-                );
-
-                $context  = stream_context_create($options);
-                $result = file_get_contents($url, false, $context);
-                $php_result = json_decode($result);
-                if ($php_result->code !== 200) {
-                    $msg = "AirSwiftPay's createPayment failed!(".$php_result->message.")";
-                    $order->add_order_note($msg);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant!')];
-                } else {
-                    $order->update_status('processing',  __( 'Awaiting AirSwift Payment', 'airswift-pay-woo'));
-//                    $order->reduce_order_stock();
-//                    WC()->cart->empty_cart();
-                    return array(
-                        'result'   => 'success',
-                        'redirect' => $php_result->data,
-                        // Redirects to the order confirmation page:
-                        // 'redirect' => $this->get_return_url($order)
-                    );
-                }
-            }
 
             /**
              * Check for IPN Response
@@ -639,60 +566,6 @@ if (!function_exists('to_utf8')) {
     }
 }
 
-function currency_conversion($currencyCode,$total_amount,$order_id = 0)
-{
-    /* // api.5
-     $d1 = [
-         'do'=>'GET',
-         'url'=>"https://api.apilayer.com/exchangerates_data/convert?to=USD&from={$currencyCode}&amount={$total_amount}",
-         'qt'=>[
-             'apikey: vIc43zNe7qA5yVPpAb560Uo4wXnPhrdA',
-             'Content-Type: text/plain'
-         ]
-     ];
-     $res = json_decode(chttp($d1),true);
-     if($res['success'] === true){
-         return $res['result'];
-     }
-     else {
-         return ['code'=>-1,'msg'=>'Currency exchange rate conversion failed!','data'=>[]];
-     }*/
-
-    // api.7
-    $d = [
-        'do'=>'GET',
-        'url'=>"https://marketdata.tradermade.com/api/v1/convert?api_key=2GGANIjul2_ZY6hPd_4c&from={$currencyCode}&to=USD&amount=1",
-    ];
-    $res = json_decode(chttp($d),true);
-    if(isset($res['total'])){
-        return $res['total'] * $total_amount;
-    }
-    else{
-        return ['code'=>-1,'msg'=>'Currency exchange rate conversion failed!','data'=>[]];
-    }
-    /*
-        // api.11
-        $d = [
-            'do'=>'POST',
-            'url'=>'https://neutrinoapi.net/convert',
-            'data'=>[
-                'from-value'=>$total_amount,
-                'from-type'=>$currencyCode,
-                'to-type'=>"USD",
-            ],
-            'qt'=>[
-                'user-id: 644577519@qq.com',
-                'api-key: VzLCqZFwsJVqo2BlcICVMcP06u7PmLhsMT5YzlnDSUq3iHTL',
-            ]
-        ];
-        $res = json_decode(chttp($d),true);
-        if($res['valid'] === true){
-            return $res['result'];
-        }
-        else{
-            return ['code'=>-1,'msg'=>'Currency exchange rate conversion failed!','data'=>[]];
-        }*/
-}
 
 function dd(...$v){
     echo '<pre>';
