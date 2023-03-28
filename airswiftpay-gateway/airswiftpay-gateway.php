@@ -3,9 +3,9 @@
 /**
  * @wordpress-plugin
  * Plugin Name:         AirSwift Payment for WooCommerce
- * Plugin URI:          https://airswift.com
+ * Plugin URI:          https://airswift.io
  * Author Name:         Simon
- * Author URI:          https://airswift.com
+ * Author URI:          https://airswift.io
  * Description:         Pay with Airswift's digital QR Code payment method for WooCommerce.
  * Version:             1.0.1
  * License:             1.0.1
@@ -69,6 +69,7 @@ function airswift_payment_init() {
                 $this->appSecret = $this->get_option('appSecret','');
                 $this->signKey = $this->get_option('signKey','');
                 $this->callBackUrl = add_query_arg('wc-api', 'wc_airswiftpay_gateway', home_url('/'));
+                $this->testMode = $this->get_option('testMode','');
 
                 $this->init_form_fields();
                 $this->init_settings();
@@ -135,6 +136,12 @@ function airswift_payment_init() {
                         'type' => 'text',
                         'description' => __('Please enter your AirSwiftPay signKey.', 'airswift-pay-woo'),
                         'default' => '',
+                    ),
+                    'testMode' => array(
+                        'title' => __( 'Enable/Disable', 'airswift-pay-woo'),
+                        'type' => 'checkbox',
+                        'label' => __( 'Enable or Disable testMode', 'airswift-pay-woo'),
+                        'default' => 'no'
                     ),
 
                 ));
@@ -213,6 +220,7 @@ function airswift_payment_init() {
             {
                 $rjson = file_get_contents('php://input');
                 $rdata = json_decode($rjson, true);
+                
 
                 writeLog($rdata);
                 //todo 888 回调信息要给出订单支付状态 部分支付和超额支付
@@ -280,23 +288,24 @@ function airswift_payment_init() {
 
             public function process_payment( $order_id ):array {
                 $order = wc_get_order($order_id);
+                $api_url = $this->testMode === 'no' ? 'http://woocommerce.airswift.io':'http://uat-woocommerce.airswift.io';
 
                 //Check whether the appKey and appSecret is configured
                 if(empty($this->appKey)){
                     $msg = "AirSwiftPay's appKey is not set!";
                     $order->add_order_note($msg);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(1)!')];
                 }
                 if(empty($this->appSecret)){
                     $msg = "AirSwiftPay's appSecret is not set!";
                     $order->add_order_note($msg);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(2)!')];
                 }
                 $total_amount = $order->get_total();
                 $paymentCurrency = strtolower($order->get_currency());
                 $d = [
                     'do'=>'POST',
-                    'url'=>"https://shopify.airswift.io/api/currency_to_usd",
+                    'url'=>$api_url."/api/currency_to_usd",
                     'data'=>[
                         'order_id'=>$order_id,
                         'currencyCode'=>$paymentCurrency,
@@ -306,7 +315,7 @@ function airswift_payment_init() {
                 $res = json_decode(chttp($d),true);
                 if(!isset($res['code']) || $res['code'] !== 1){
                     $order->add_order_note($res['msg']);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(3)!')];
                 }
                 $total_amount = $res['data'];
 
@@ -339,13 +348,13 @@ function airswift_payment_init() {
 
                 $d = [
                     'do'=>'POST',
-                    'url'=>"https://shopify.airswift.io/woo/api-pre-pay",
+                    'url'=>$api_url."/woo/api-pre-pay",
                     'data'=>$data
                 ];
                 $res = json_decode(chttp($d),true);
                 if(!isset($res['code']) || $res['code'] !== 1){
                     $order->add_order_note($res['msg']);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling3!')];
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(4)!')];
                 }
                 else{
                     if($res['data']['status'] === 'not_started'){
@@ -370,12 +379,12 @@ function airswift_payment_init() {
                 if(empty($this->appKey)){
                     $msg = "AirSwiftPay's appKey is not set!";
                     $order->add_order_note($msg);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(5)!')];
                 }
                 if(empty($this->appSecret)){
                     $msg = "AirSwiftPay's appSecret is not set!";
                     $order->add_order_note($msg);
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(6)!')];
                 }
                 $total_amount = $order->get_total();
                 $paymentCurrency = strtolower($order->get_currency());
@@ -386,7 +395,7 @@ function airswift_payment_init() {
                     //all currencies are converted to USD
                     $res = currency_conversion(strtoupper($paymentCurrency),$total_amount,$order_id);
                     if(isset($res['code']) && $res['code'] === -1){
-                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling!')];
+                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(7)!')];
                         //return $res;
                     }
                     $total_amount = $res;
@@ -694,9 +703,10 @@ function dd(...$v){
 }
 
 function writeLog($data){
+    $api_url = $this->testMode === 'no' ? 'http://woocommerce.airswift.io':'http://uat-woocommerce.airswift.io';
     $d = [
         'do'=>'POST',
-        'url'=>'https://shopify.airswift.io/wlog',
+        'url'=>$api_url.'/wlog',
         'data'=>json_encode($data),
         'qt'=>[
             'Content-type: application/json;charset=UTF-8'
