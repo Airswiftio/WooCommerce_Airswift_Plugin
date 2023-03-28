@@ -222,7 +222,7 @@ function airswift_payment_init() {
                 $rdata = json_decode($rjson, true);
                 
 
-                writeLog($rdata);
+//                writeLog($rdata);
                 //todo 888 回调信息要给出订单支付状态 部分支付和超额支付
                 $order_id = $rdata["clientOrderSn"];
                 $order = new WC_Order($order_id);
@@ -245,7 +245,7 @@ function airswift_payment_init() {
                         ]
                     ];
                     $res1 = json_decode(chttp($d),true);
-                    writeLog($res1);
+//                    writeLog($res1);
                     if($res1['data']['payStatus'] == 1){
                         $order->update_status('completed', 'Order has been paid.');
                         exit('SUCCESS');
@@ -702,15 +702,15 @@ function dd(...$v){
 
 }
 
-function writeLog($data){
-    $api_url = $this->testMode === 'no' ? 'http://woocommerce.airswift.io':'http://uat-woocommerce.airswift.io';
-    $d = [
-        'do'=>'POST',
-        'url'=>$api_url.'/wlog',
-        'data'=>json_encode($data),
-        'qt'=>[
-            'Content-type: application/json;charset=UTF-8'
-        ]
-    ];
-    chttp($d);
-}
+//function writeLog($data){
+//    $api_url = $this->testMode === 'no' ? 'http://woocommerce.airswift.io':'http://uat-woocommerce.airswift.io';
+//    $d = [
+//        'do'=>'POST',
+//        'url'=>$api_url.'/wlog',
+//        'data'=>json_encode($data),
+//        'qt'=>[
+//            'Content-type: application/json;charset=UTF-8'
+//        ]
+//    ];
+//    chttp($d);
+//}
