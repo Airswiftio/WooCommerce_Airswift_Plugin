@@ -197,6 +197,8 @@ function airswift_payment_init() {
             {
                 $json = file_get_contents('php://input');
                 $data = json_decode($json, true);
+                writeLog($this->testMode,"check_ipn_request_is_valid-----",$data);
+
                 if(empty($data) || !isset($data['sign']) || !isset($data['clientOrderSn']) || !isset($data['coinUnit']) || !isset($data['amount']) || !isset($data['rate']) ) {
                     return false;
                 }
@@ -222,9 +224,10 @@ function airswift_payment_init() {
                 $rdata = json_decode($rjson, true);
                 
 
-//                writeLog($rdata);
 //                $order_id = $rdata["clientOrderSn"];
                 $order_id = explode('_',$rdata['clientOrderSn'])[0];
+                writeLog($this->testMode,"successful_request-----$order_id",$rdata);
+
                 $order = new WC_Order($order_id);
 
                 //If the order has been completed, it is not allowed to modify the order status
@@ -250,7 +253,7 @@ function airswift_payment_init() {
                         ]
                     ];
                     $res1 = json_decode(chttp($d),true);
-//                    writeLog($res1);
+                    writeLog($this->testMode,"successful_request-----$order_id--detail",$res1);
                     if($res1['data']['payStatus'] == 1){
                         $order->update_status('completed', 'Order has been paid.');
                         exit('SUCCESS');
@@ -575,15 +578,16 @@ function dd(...$v){
 
 }
 
-//function writeLog($data){
-//    $api_url = $this->testMode === 'no' ? 'http://woocommerce.airswift.io':'http://uat-woocommerce.airswift.io';
-//    $d = [
-//        'do'=>'POST',
-//        'url'=>$api_url.'/wlog',
-//        'data'=>json_encode($data),
-//        'qt'=>[
-//            'Content-type: application/json;charset=UTF-8'
-//        ]
-//    ];
-//    chttp($d);
-//}
+function writeLog($testMode,$msg,$data){
+    $data['message1'] = $msg;
+    $api_url = $testMode === 'no' ? 'http://woocommerce.airswift.io':'http://uat-woocommerce.airswift.io';
+    $d = [
+        'do'=>'POST',
+        'url'=>$api_url.'/wlog',
+        'data'=>json_encode($data),
+        'qt'=>[
+            'Content-type: application/json;charset=UTF-8'
+        ]
+    ];
+    chttp($d);
+}
