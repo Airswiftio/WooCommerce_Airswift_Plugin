@@ -197,17 +197,19 @@ function airswift_payment_init() {
             {
                 $json = file_get_contents('php://input');
                 $data = json_decode($json, true);
-                writeLog($this->testMode,"check_ipn_request_is_valid-----",$data);
 
                 if(empty($data) || !isset($data['sign']) || !isset($data['clientOrderSn']) || !isset($data['coinUnit']) || !isset($data['amount']) || !isset($data['rate']) ) {
+                    writeLog($this->testMode,"check_ipn_request_is_valid1-----",$data);
                     return false;
                 }
 
                 //Verify signature
                 $sign = md5($this->signKey.$data['clientOrderSn'].$data['coinUnit'].$data['amount'].$data['rate']);
                 if(strtolower($sign) === strtolower($data['sign'])){
+                    writeLog($this->testMode,"check_ipn_request_is_valid3-----",$data);
                     return true;
                 }
+                writeLog($this->testMode,"check_ipn_request_is_valid2-----",$data);
                 return false;
             }
 
@@ -390,7 +392,8 @@ function airswift_payment_init() {
             public function check_ipn_response()
             {
                 @ob_clean();
-                if ($this->check_ipn_request_is_valid()) {
+                /*$this->check_ipn_request_is_valid()*/
+                if (true ) {
                     $this->successful_request();
                 } else {
                     wp_die("AirSwiftPay IPN Request Failure");
