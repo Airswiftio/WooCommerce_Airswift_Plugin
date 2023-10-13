@@ -53,7 +53,7 @@ add_action( 'plugins_loaded', 'airswift_payment_init', 11 );
 function airswift_payment_init() {
     if( class_exists( 'WC_Payment_Gateway' ) ) {
         class WC_AirSwift_Pay_Gateway extends WC_Payment_Gateway {
-            public $instructions,$appKey,$appSecret,$signKey,$callBackUrl;
+            public $instructions,$appKey,$appSecret,$merchantPrikey,$signKey,$callBackUrl;
 
             public function __construct() {
                 $this->id   = 'airswift_payment';
@@ -66,8 +66,9 @@ function airswift_payment_init() {
                 $this->description = $this->get_option( 'description' );
                 $this->instructions = $this->get_option( 'instructions', $this->description );
                 $this->appKey = $this->get_option('appKey','');
-                $this->appSecret = $this->get_option('appSecret','');
-                $this->signKey = $this->get_option('signKey','');
+                $this->merchantPrikey = $this->get_option('merchantPrikey','');
+//                $this->appSecret = $this->get_option('appSecret','');
+//                $this->signKey = $this->get_option('signKey','');
                 $this->callBackUrl = add_query_arg('wc-api', 'wc_airswiftpay_gateway', home_url('/'));
                 $this->testMode = $this->get_option('testMode','');
 
@@ -125,18 +126,24 @@ function airswift_payment_init() {
                         'description' => __('Please enter your AirSwiftPay appKey.', 'airswift-pay-woo'),
                         'default' => '',
                     ),
-                    'appSecret' => array(
-                        'title' => __('appSecret', 'airswift-pay-woo'),
+                    'merchantPrikey' => array(
+                        'title' => __('merchantPrikey', 'airswift-pay-woo'),
                         'type' => 'text',
-                        'description' => __('Please enter your AirSwiftPay appSecret.', 'airswift-pay-woo'),
+                        'description' => __('Please enter your Merchant Private key.', 'airswift-pay-woo'),
                         'default' => '',
                     ),
-                    'signKey' => array(
-                        'title' => __('signKey', 'airswift-pay-woo'),
-                        'type' => 'text',
-                        'description' => __('Please enter your AirSwiftPay signKey.', 'airswift-pay-woo'),
-                        'default' => '',
-                    ),
+//                    'appSecret' => array(
+//                        'title' => __('appSecret', 'airswift-pay-woo'),
+//                        'type' => 'text',
+//                        'description' => __('Please enter your AirSwiftPay appSecret.', 'airswift-pay-woo'),
+//                        'default' => '',
+//                    ),
+//                    'signKey' => array(
+//                        'title' => __('signKey', 'airswift-pay-woo'),
+//                        'type' => 'text',
+//                        'description' => __('Please enter your AirSwiftPay signKey.', 'airswift-pay-woo'),
+//                        'default' => '',
+//                    ),
                     'testMode' => array(
                         'title' => __( 'Enable/Disable', 'airswift-pay-woo'),
                         'type' => 'checkbox',
@@ -203,12 +210,12 @@ function airswift_payment_init() {
                     return false;
                 }
 
-                //Verify signature
-                $sign = md5($this->signKey.$data['clientOrderSn'].$data['coinUnit'].$data['amount'].$data['rate']);
-                if(strtolower($sign) === strtolower($data['sign'])){
-                    writeLog($this->testMode,"check_ipn_request_is_valid3-----",$data);
-                    return true;
-                }
+                //Verify signature todo 888
+//                $sign = md5($this->signKey.$data['clientOrderSn'].$data['coinUnit'].$data['amount'].$data['rate']);
+//                if(strtolower($sign) === strtolower($data['sign'])){
+//                    writeLog($this->testMode,"check_ipn_request_is_valid3-----",$data);
+//                    return true;
+//                }
                 writeLog($this->testMode,"check_ipn_request_is_valid2-----",$data);
                 return false;
             }
@@ -222,13 +229,14 @@ function airswift_payment_init() {
              */
             public function successful_request()
             {
+                writeLog($this->testMode,"successful_request-----init",[]);
                 $rjson = file_get_contents('php://input');
-                $rdata = json_decode($rjson, true);
-                
+                $res_data = json_decode($rjson, true);
+                $rdata = $res_data['data'];
 
 //                $order_id = $rdata["clientOrderSn"];
                 $order_id = explode('_',$rdata['clientOrderSn'])[0];
-                writeLog($this->testMode,"successful_request-----$order_id",$rdata);
+                writeLog($this->testMode,"successful_request-----$order_id",$res_data);
 
                 $order = new WC_Order($order_id);
 
@@ -241,20 +249,27 @@ function airswift_payment_init() {
                     // Query the order details. When the payStatus is 1 or 4, the order is marked as paid (completed)
                     $orderSn = $rdata['orderSn'];
                     $appKey = $this->appKey;
-                    $appSecret = $this->appSecret;
                     $nonce = mt_rand(100000,999999);
                     $timestamp = floor(microtime(true) * 1000);
-                    $sign = md5($appKey.$nonce.$timestamp.$appSecret);
-                    $url = "https://order.airswift.io/docking/order/detail/{$orderSn}?appKey={$appKey}&sign={$sign}&timestamp={$timestamp}&nonce={$nonce}";
-                    $d = [
-                        'do'=>'POST',
-                        'url'=>$url,
-                        'data'=>json_encode([]),
-                        'qt'=>[
-                            'Content-type: application/json;charset=UTF-8'
-                        ]
+
+                    $data = [
+                        'appKey'=>$appKey,
+                        'nonce'=>$nonce .'',
+                        'orderSn'=>$orderSn,
+                        'timestamp'=>$timestamp .'',
                     ];
-                    $res1 = json_decode(chttp($d),true);
+                    ksort($data);
+                    $data = array_filter($data, "removeEmptyValues");
+                    $sData = implode('',$data);
+                    $sign =  encodeSHA256withRSA($sData,$this->merchantPrikey);
+                    $url = "https://order.airswift.io/docking/order/detail";
+                    $bizContent = json_encode($data);
+                    $post_data =  [
+                        'signStr'=>$sign,
+                        'bizContent'=>$bizContent
+                    ];
+
+                    $res1 = json_decode(wPost($url,$post_data),true);
                     writeLog($this->testMode,"successful_request-----$order_id--detail",$res1);
                     if($res1['data']['payStatus'] == 1){
                         $order->update_status('completed', 'Order has been paid.');
@@ -298,7 +313,7 @@ function airswift_payment_init() {
 
             public function process_payment( $order_id ):array {
                 $order = wc_get_order($order_id);
-                $api_url = $this->testMode === 'no' ? 'http://woocommerce.airswift.io':'http://uat-woocommerce.airswift.io';
+                $api_url = $this->testMode === 'no' ? 'https://woocommerce.airswift.io':'https://uat-woocommerce.airswift.io';
 
                 //Check whether the appKey and appSecret is configured
                 if(empty($this->appKey)){
@@ -306,8 +321,8 @@ function airswift_payment_init() {
                     $order->add_order_note($msg);
                     return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(1)!')];
                 }
-                if(empty($this->appSecret)){
-                    $msg = "AirSwiftPay's appSecret is not set!";
+                if(empty($this->merchantPrikey)){
+                    $msg = "AirSwiftPay's merchantPrikey is not set!";
                     $order->add_order_note($msg);
                     return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(2)!')];
                 }
@@ -323,6 +338,7 @@ function airswift_payment_init() {
                     ]
                 ];
                 $res = json_decode(chttp($d),true);
+
                 if(!isset($res['code']) || $res['code'] !== 1){
                     $order->add_order_note($res['msg']);
                     return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(3)!')];
@@ -338,14 +354,14 @@ function airswift_payment_init() {
 //                $customer_id = $order->customer_id;
 //                $order_note = $order->customer_note;
                 $timestamp = floor(microtime(true) * 1000);
-                $appSecret = $this->appSecret;
+//                $appSecret = $this->appSecret;
                 $clientOrderSn = $order_id;
-                $sign = md5($appKey.$nonce.$timestamp.$currency_unit.$total_amount.$order_id.$basicsType.$tradeType.$appSecret);
+//                $sign = md5($appKey.$nonce.$timestamp.$currency_unit.$total_amount.$order_id.$basicsType.$tradeType.$appSecret);
                 $data = [
                     'appKey' => $appKey,
                     'order_id' => $order_id,
-                    'appSecret' => $appSecret,
-                    'sign' => $sign,
+                    'merchantPrikey' => $this->merchantPrikey,
+//                    'sign' => $sign,
                     'timestamp' => $timestamp,
                     'nonce' => $nonce,
                     'clientOrderSn' => $clientOrderSn,
@@ -355,6 +371,7 @@ function airswift_payment_init() {
                     'amount' => $total_amount,
 //                    'remarks' => $order_note,
                 ];
+
 
                 $d = [
                     'do'=>'POST',
@@ -583,7 +600,7 @@ function dd(...$v){
 
 function writeLog($testMode,$msg,$data){
     $data['message1'] = $msg;
-    $api_url = $testMode === 'no' ? 'http://woocommerce.airswift.io':'http://uat-woocommerce.airswift.io';
+    $api_url = $testMode === 'no' ? 'https://woocommerce.airswift.io':'https://uat-woocommerce.airswift.io';
     $d = [
         'do'=>'POST',
         'url'=>$api_url.'/wlog',
@@ -593,4 +610,32 @@ function writeLog($testMode,$msg,$data){
         ]
     ];
     chttp($d);
+}
+
+function removeEmptyValues($value) {
+    return !empty($value) || ($value === 0 || $value === '0');
+}
+
+function encodeSHA256withRSA($content,$privateKey0=''){
+    $privateKey = "-----BEGIN RSA PRIVATE KEY-----\n" .
+        wordwrap($privateKey0, 64, "\n", true) .
+        "\n-----END RSA PRIVATE KEY-----";
+    openssl_sign($content, $sign, $privateKey, OPENSSL_ALGO_SHA256);
+
+    $sign = base64_encode($sign);
+    return $sign;
+}
+
+function wPost($url = '',$post_data = []){
+    $ch = curl_init();//初始化cURL
+
+    curl_setopt($ch,CURLOPT_URL,$url);//抓取指定网页
+    curl_setopt($ch,CURLOPT_RETURNTRANSFER,1);//要求结果为字符串并输出到屏幕上
+    curl_setopt($ch,CURLOPT_POST,1);//Post请求方式
+//        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+    curl_setopt($ch,CURLOPT_POSTFIELDS,$post_data);//Post变量
+
+    $output = curl_exec($ch);//执行并获得HTML内容
+    curl_close($ch);//释放cURL句柄
+    return $output;
 }
