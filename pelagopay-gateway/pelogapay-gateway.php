@@ -359,7 +359,7 @@ function pelago_payment_init() {
                     $url = $this->testMode === 'no'  ? "https://api.pelagotech.com/merchant-api/crypto-order/{$order_id}":"https://pg-as-staging.walkcloud.xyz/merchant-api/crypto-order/{$order_id}" ;
                     $headers = [
                         "Content-Type: application/json",
-                        "Merchant-APP-Key:{$this->appKey}",
+                        "X-App-Key: {$this->appKey}",
                     ];
                     $res1 = json_decode(wGet($url,[],$headers),true);
                     writeLog($this->testMode,"successful_callback-----$order_id--detail",$res1);
