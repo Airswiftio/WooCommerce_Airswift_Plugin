@@ -119,7 +119,7 @@ function pelago_payment_init() {
                         'type' => 'textarea',
                         'default' => __( 'Default instructions', 'pelago-pay-woo'),
                         'desc_tip' => true,
-                        'description' => __( 'Instructions that will be added to the thank you page and odrer email', 'pelago-pay-woo')
+                        'description' => __( 'Instructions that will be added to the thank you page and order email', 'pelago-pay-woo')
                     ),
                     'merchantId' => array(
                         'title' => __('merchantId', 'pelago-pay-woo'),
@@ -201,31 +201,31 @@ function pelago_payment_init() {
                     $order = wc_get_order($order_id);
                     if (!$order) {
                         writeLog($this->testMode, "Invalid order ID: $order_id", []);
-                        return ['result'=>'failure', 'messages'=>home_notice('订单不存在，请重试！')];
+                        return ['result'=>'failure', 'messages'=>home_notice('Order does not exist, please try again!')];
                     }
                     
                     $api_url = $this->testMode === 'no' ? 'https://pgpay.weroam.xyz':'https://pgpay-stage.weroam.xyz';
 
-                    //Check whether the required configuration is set
+                    // Check whether the required configuration is set
                     $required_configs = [
-                        'merchantId' => 'merchantId未设置',
-                        'appKey' => 'appKey未设置', 
-                        'merchantPrikey' => 'merchantPrikey未设置',
-                        'platformPublicKey' => 'platformPublicKey未设置'
+                        'merchantId' => 'merchantId is not set',
+                        'appKey' => 'appKey is not set', 
+                        'merchantPrikey' => 'merchantPrikey is not set',
+                        'platformPublicKey' => 'platformPublicKey is not set'
                     ];
                     
                     foreach ($required_configs as $config => $error_msg) {
                         if (empty($this->$config)) {
-                            $order->add_order_note("PelagoPay配置错误: $error_msg");
+                            $order->add_order_note("PelagoPay configuration error: $error_msg");
                             writeLog($this->testMode, "Configuration missing: $config", []);
-                            return ['result'=>'failure', 'messages'=>home_notice('支付配置错误，请联系商家！')];
+                            return ['result'=>'failure', 'messages'=>home_notice('Payment configuration error, please contact merchant!')];
                         }
                     }
 
                     $total_amount = $order->get_total();
                     $paymentCurrency = strtolower($order->get_currency());
                     
-                    // 汇率转换请求
+                    // Currency conversion request
                     $currency_data = [
                         'order_id'=>$order_id,
                         'currencyCode'=>$paymentCurrency,
@@ -240,15 +240,15 @@ function pelago_payment_init() {
                     
                     $res = json_decode(chttp($d), true);
                     if (!$res || !isset($res['code']) || $res['code'] !== 1) {
-                        $error_msg = isset($res['msg']) ? $res['msg'] : '汇率转换失败';
-                        $order->add_order_note("汇率转换失败: $error_msg");
+                        $error_msg = isset($res['msg']) ? $res['msg'] : 'Currency conversion failed';
+                        $order->add_order_note("Currency conversion failed: $error_msg");
                         writeLog($this->testMode, "Currency conversion failed", $res);
-                        return ['result'=>'failure', 'messages'=>home_notice('汇率转换失败，请稍后重试！')];
+                        return ['result'=>'failure', 'messages'=>home_notice('Currency conversion failed, please try again later!')];
                     }
                     
                     $total_amount = $res['data'];
 
-                    //pre pay
+                    // Pre-payment preparation
                     $currency_unit = "USDT-ERC20";
                     $nonce = mt_rand(100000,999999);
                     $timestamp = floor(microtime(true) * 1000);
@@ -274,17 +274,17 @@ function pelago_payment_init() {
                     
                     $res = json_decode(chttp($d), true);
                     if (!$res || !isset($res['code']) || $res['code'] !== 1) {
-                        $error_msg = isset($res['msg']) ? $res['msg'] : '支付请求失败';
-                        $order->add_order_note("支付请求失败: $error_msg");
+                        $error_msg = isset($res['msg']) ? $res['msg'] : 'Payment request failed';
+                        $order->add_order_note("Payment request failed: $error_msg");
                         writeLog($this->testMode, "Payment request failed", $res);
-                        return ['result'=>'failure', 'messages'=>home_notice('支付请求失败，请稍后重试！')];
+                        return ['result'=>'failure', 'messages'=>home_notice('Payment request failed, please try again later!')];
                     }
 
-                    // 验证返回的支付URL
+                    // Validate returned payment URL
                     if (!isset($res['data']['url']) || empty($res['data']['url'])) {
-                        $order->add_order_note("支付URL获取失败");
+                        $order->add_order_note("Payment URL retrieval failed");
                         writeLog($this->testMode, "Payment URL missing", $res);
-                        return ['result'=>'failure', 'messages'=>home_notice('支付链接获取失败，请重试！')];
+                        return ['result'=>'failure', 'messages'=>home_notice('Payment link retrieval failed, please try again!')];
                     }
 
                     return array(
@@ -293,7 +293,7 @@ function pelago_payment_init() {
                     );
                 }
                 catch (Exception $e) {
-                    $error_msg = "支付处理异常: " . $e->getMessage();
+                    $error_msg = "Payment processing exception: " . $e->getMessage();
                     writeLog($this->testMode, $error_msg, [
                         'file' => $e->getFile(),
                         'line' => $e->getLine(),
@@ -304,7 +304,7 @@ function pelago_payment_init() {
                         $order->add_order_note($error_msg);
                     }
                     
-                    return ['result'=>'failure', 'messages'=>home_notice('支付处理出现异常，请联系商家处理！')];
+                    return ['result'=>'failure', 'messages'=>home_notice('Payment processing exception occurred, please contact merchant!')];
                 }
             }
 
@@ -320,18 +320,18 @@ function pelago_payment_init() {
                 $json = file_get_contents('php://input');
                 $data = json_decode($json, true);
 
-                // 验证必要字段是否存在
+                // Verify necessary fields
                 if(empty($data) || !isset($data['signature']) || !isset($data['data']['merchantOrderId']) || !isset($data['data']['coinId']) || !isset($data['data']['amount']) ) {
                     writeLog($this->testMode,"IPN validation failed: missing required fields",$data);
                     return false;
                 }
 
-                // 验证签名
+                // Verify signature
                 try {
                     $signatureData = $data['data'] ?? [];
                     $signature = $data['signature'] ?? '';
                     
-                    // 使用平台公钥验证签名
+                    // Use platform public key to verify signature
                     $isValid = verifySHA256withRSA(arr2SignStr($signatureData,''), $signature, $this->platformPublicKey);
                     
                     if (!$isValid) {
@@ -378,7 +378,7 @@ function pelago_payment_init() {
                         exit('failed:no signature');
                     }
 
-                    // 验证签名
+                    // Verify signature
                     $Verify = verifySHA256withRSA(arr2SignStr($res_data['data'] ?? [],''),$res_data['signature'] ?? '',$this->platformPublicKey);
                     if(!$Verify){
                         writeLog($this->testMode,"Signature verification failed",$res_data);
@@ -391,7 +391,7 @@ function pelago_payment_init() {
 
                     $order = new WC_Order($client_order_id);
 
-                    //If the order has been processing, it is not allowed to modify the order status
+                    // If the order has been processing, it is not allowed to modify the order status
                     if($order->get_status() === 'processing' || $order->get_status() === 'completed'){
                         exit('SUCCESS');
                     }
@@ -465,7 +465,7 @@ function pelago_payment_init() {
             {
                 @ob_clean();
                 
-                // 使用真正的IPN验证，而不是强制通过
+                // Use real IPN verification instead of forcing through
                 if ($this->check_ipn_request_is_valid()) {
                     $this->successful_request();
                 } else {
@@ -515,7 +515,7 @@ if (!function_exists('chttp')) {
 
         $url = $d['url'];
         if ($url == "") {
-            exit("URL不能为空!");
+            exit("URL cannot be empty!");
         }
         $header = [];
 
@@ -532,10 +532,11 @@ if (!function_exists('chttp')) {
         if ($d['port'] != '') {
             curl_setopt($ch, CURLOPT_PORT, intval($d['port']));
         }
-        //cookie 文件/文本
+
+        // Cookie file/text
         if ($d['cookie'] != "") {
             if (substr($d['cookie'], -4) == ".txt") {
-                //文件不存在则生成
+                // Create file if it doesn't exist
                 if (!wjif($d['cookie'])) {
                     wjxie($d['cookie'], '');
                 }
@@ -548,13 +549,14 @@ if (!function_exists('chttp')) {
             }
         }
 
-        //附加头信息
+        // Additional header information
         if ($d['qt']) {
             foreach ($d['qt'] as $v) {
                 $header[] = $v;
             }
         }
-        //代理
+
+        // Proxy settings
         if (count($d['daili']) == 2) {
             curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
             curl_setopt($ch, CURLOPT_PROXY, $d['daili'][0]);
@@ -566,55 +568,61 @@ if (!function_exists('chttp')) {
         $timeout = $d['time'] == "" ? 10 : ints($d['time'], 10);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 
+        // Gzip settings
         if ($d['gzip'] != "0") {
             curl_setopt($ch, CURLOPT_ENCODING, "gzip");
         }
 
-        //跳转跟随
+        // Redirect following
         if ($d['tz'] == "0") {
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
         } else {
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
         }
 
-        //SSL
+        // SSL settings
         if (substr($url, 0, 8) === 'https://' || $d['nossl'] == "1") {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         }
 
-        //请求方式
+        // Request method
         if (in_array(strtoupper($d['do']), ['DELETE', 'PUT'])) {
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($d['do']));
         } else {
-            //POST数据
+            // POST data
             if (!empty($postData)) {
                 if (is_array($postData)) {
                     $postData = http_build_query($postData);
                 }
                 curl_setopt($ch, CURLOPT_POST, 1);
                 curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-            } //POST空内容
+            } // POST empty content
             elseif (strtoupper($d['do']) == "POST") {
                 curl_setopt($ch, CURLOPT_POST, 1);
             }
         }
+
+        // Return headers
         if ($d['headon'] == "1") {
             curl_setopt($ch, CURLOPT_HEADER, 1);
         }
 
         curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-        //超时时间
+
+        // Timeout settings
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, (int)$timeout);
         curl_setopt($ch, CURLOPT_TIMEOUT, (int)$timeout);
 
-        //执行
+        // Execute
         $content = curl_exec($ch);
+
+        // Convert to UTF-8
         if ($d['to_utf8'] != "0") {
             $content = to_utf8($content);
         }
 
-        //是否返回状态码
+        // Whether to return status code
         if ($d['code'] == "1") {
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $content = [$httpCode, $content];
@@ -683,16 +691,16 @@ function encodeSHA256withRSA($content,$privateKey0=''){
 }
 
 function wPost($url = '',$post_data = []){
-    $ch = curl_init();//初始化cURL
+    $ch = curl_init(); // Initialize cURL
 
-    curl_setopt($ch,CURLOPT_URL,$url);//抓取指定网页
-    curl_setopt($ch,CURLOPT_RETURNTRANSFER,1);//要求结果为字符串并输出到屏幕上
-    curl_setopt($ch,CURLOPT_POST,1);//Post请求方式
+    curl_setopt($ch,CURLOPT_URL,$url); // Set target URL
+    curl_setopt($ch,CURLOPT_RETURNTRANSFER,1); // Return result as string
+    curl_setopt($ch,CURLOPT_POST,1); // POST request method
 //        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-    curl_setopt($ch,CURLOPT_POSTFIELDS,$post_data);//Post变量
+    curl_setopt($ch,CURLOPT_POSTFIELDS,$post_data); // POST data
 
-    $output = curl_exec($ch);//执行并获得HTML内容
-    curl_close($ch);//释放cURL句柄
+    $output = curl_exec($ch); // Execute and get HTML content
+    curl_close($ch); // Release cURL handle
     return $output;
 }
 
@@ -750,11 +758,11 @@ function arr2SignStr(array $d=[],string $separator=''):string{
 
 
 /**
- * RSA-SHA256 验签函数
- * @param string $content 原始内容
- * @param string $signature base64编码的签名
- * @param string $publicKey0 公钥字符串（不含头尾）
- * @return bool 验签结果，true为验签成功，false为验签失败
+ * RSA-SHA256 signature verification function
+ * @param string $content Original content
+ * @param string $signature Base64 encoded signature
+ * @param string $publicKey0 Public key string (without header/footer)
+ * @return bool Verification result, true for success, false for failure
  */
 function verifySHA256withRSA($content, $signature, $publicKey0 = '') {
     if (empty($content) || empty($signature) || empty($publicKey0)) {
@@ -767,20 +775,19 @@ function verifySHA256withRSA($content, $signature, $publicKey0 = '') {
             wordwrap($publicKey0, 64, "\n", true) .
             "\n-----END PUBLIC KEY-----";
 
-        // 解码 base64 签名
+        // Decode base64 signature
         $decodedSignature = base64_decode($signature);
         if ($decodedSignature === false) {
             return false;
         }
 
-        // 验证签名
+        // Verify signature
         $result = openssl_verify($content, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256);
 
         return $result === 1;
     } catch (Exception $e) {
-        // 记录错误日志（如果需要）
+        // Log error if needed
         // error_log("RSA verify error: " . $e->getMessage());
         return false;
     }
 }
-
