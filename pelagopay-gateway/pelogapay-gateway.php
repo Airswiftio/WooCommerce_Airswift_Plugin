@@ -199,90 +199,113 @@ function pelago_payment_init() {
             public function process_payment( $order_id ):array {
                 try {
                     $order = wc_get_order($order_id);
+                    if (!$order) {
+                        writeLog($this->testMode, "Invalid order ID: $order_id", []);
+                        return ['result'=>'failure', 'messages'=>home_notice('订单不存在，请重试！')];
+                    }
+                    
                     $api_url = $this->testMode === 'no' ? 'https://pgpay.weroam.xyz':'https://pgpay-stage.weroam.xyz';
 
-                    //Check whether the appKey and appSecret is configured
-                    if(empty($this->merchantId)){
-                        $msg = "PelagoPay's merchantId is not set!";
-                        $order->add_order_note($msg);
-                        return ['result'=>'success', 'messages'=>home_notice('The pelago plugin Settings failed(60035)!')];
-                    }
-                    if(empty($this->appKey)){
-                        $msg = "PelagoPay's appKey is not set!";
-                        $order->add_order_note($msg);
-                        return ['result'=>'success', 'messages'=>home_notice('The pelago plugin Settings failed(60036)!')];
-                    }
-                    if(empty($this->merchantPrikey)){
-                        $msg = "PelagoPay's merchantPrikey is not set!";
-                        $order->add_order_note($msg);
-                        return ['result'=>'success', 'messages'=>home_notice('The pelago plugin Settings failed(60037)!')];
-                    }
-                    if(empty($this->platformPublicKey)){
-                        $msg = "PelagoPay's platformPublicKey is not set!";
-                        $order->add_order_note($msg);
-                        return ['result'=>'success', 'messages'=>home_notice('The pelago plugin Settings failed(60038)!')];
+                    //Check whether the required configuration is set
+                    $required_configs = [
+                        'merchantId' => 'merchantId未设置',
+                        'appKey' => 'appKey未设置', 
+                        'merchantPrikey' => 'merchantPrikey未设置',
+                        'platformPublicKey' => 'platformPublicKey未设置'
+                    ];
+                    
+                    foreach ($required_configs as $config => $error_msg) {
+                        if (empty($this->$config)) {
+                            $order->add_order_note("PelagoPay配置错误: $error_msg");
+                            writeLog($this->testMode, "Configuration missing: $config", []);
+                            return ['result'=>'failure', 'messages'=>home_notice('支付配置错误，请联系商家！')];
+                        }
                     }
 
                     $total_amount = $order->get_total();
                     $paymentCurrency = strtolower($order->get_currency());
+                    
+                    // 汇率转换请求
+                    $currency_data = [
+                        'order_id'=>$order_id,
+                        'currencyCode'=>$paymentCurrency,
+                        'total_amount'=>$total_amount,
+                    ];
+                    
                     $d = [
                         'do'=>'POST',
                         'url'=>$api_url."/api/currency_to_usd",
-                        'data'=>[
-                            'order_id'=>$order_id,
-                            'currencyCode'=>$paymentCurrency,
-                            'total_amount'=>$total_amount,
-                        ]
+                        'data'=>$currency_data
                     ];
-                    $res = json_decode(chttp($d),true);
-
-                    if(!isset($res['code']) || $res['code'] !== 1){
-                        $order->add_order_note($res['msg']);
-                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(60038)!')];
+                    
+                    $res = json_decode(chttp($d), true);
+                    if (!$res || !isset($res['code']) || $res['code'] !== 1) {
+                        $error_msg = isset($res['msg']) ? $res['msg'] : '汇率转换失败';
+                        $order->add_order_note("汇率转换失败: $error_msg");
+                        writeLog($this->testMode, "Currency conversion failed", $res);
+                        return ['result'=>'failure', 'messages'=>home_notice('汇率转换失败，请稍后重试！')];
                     }
+                    
                     $total_amount = $res['data'];
 
                     //pre pay
                     $currency_unit = "USDT-ERC20";
                     $nonce = mt_rand(100000,999999);
                     $timestamp = floor(microtime(true) * 1000);
-                    $data = [
+                    
+                    $payment_data = [
                         'merchantId' => $this->merchantId,
-                        'merchantPrikey' =>$this->merchantPrikey,
-                        'appKey' =>$this->appKey,
+                        'merchantPrikey' => $this->merchantPrikey,
+                        'appKey' => $this->appKey,
                         'order_id' => $order_id,
-                        'coinId' =>$currency_unit,
+                        'coinId' => $currency_unit,
                         'amount' => $total_amount,
                         'timestamp' => $timestamp,
                         'nonce' => $nonce,
                         'notifyUrl' => $this->callBackUrl,
-                        'redirectUrl' =>$order->get_checkout_order_received_url(),
-//                    'remarks' => $order_note,
+                        'redirectUrl' => $order->get_checkout_order_received_url(),
                     ];
-
 
                     $d = [
                         'do'=>'POST',
                         'url'=>$api_url."/woo/api-pre-pay",
-                        'data'=>$data
+                        'data'=>$payment_data
                     ];
-                    $res = json_decode(chttp($d),true);
-                    if(!isset($res['code']) || $res['code'] !== 1){
-                        $order->add_order_note($res['msg']);
-                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(60039)!')];
+                    
+                    $res = json_decode(chttp($d), true);
+                    if (!$res || !isset($res['code']) || $res['code'] !== 1) {
+                        $error_msg = isset($res['msg']) ? $res['msg'] : '支付请求失败';
+                        $order->add_order_note("支付请求失败: $error_msg");
+                        writeLog($this->testMode, "Payment request failed", $res);
+                        return ['result'=>'failure', 'messages'=>home_notice('支付请求失败，请稍后重试！')];
+                    }
+
+                    // 验证返回的支付URL
+                    if (!isset($res['data']['url']) || empty($res['data']['url'])) {
+                        $order->add_order_note("支付URL获取失败");
+                        writeLog($this->testMode, "Payment URL missing", $res);
+                        return ['result'=>'failure', 'messages'=>home_notice('支付链接获取失败，请重试！')];
                     }
 
                     return array(
                         'result'   => 'success',
                         'redirect' => $res['data']['url'],
-                        // Redirects to the order confirmation page:
-                        // 'redirect' => $this->get_return_url($order)
                     );
                 }
                 catch (Exception $e) {
-                    return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(60040)!')];
+                    $error_msg = "支付处理异常: " . $e->getMessage();
+                    writeLog($this->testMode, $error_msg, [
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    
+                    if (isset($order)) {
+                        $order->add_order_note($error_msg);
+                    }
+                    
+                    return ['result'=>'failure', 'messages'=>home_notice('支付处理出现异常，请联系商家处理！')];
                 }
-
             }
 
 
@@ -297,19 +320,35 @@ function pelago_payment_init() {
                 $json = file_get_contents('php://input');
                 $data = json_decode($json, true);
 
+                // 验证必要字段是否存在
                 if(empty($data) || !isset($data['signature']) || !isset($data['data']['merchantOrderId']) || !isset($data['data']['coinId']) || !isset($data['data']['amount']) ) {
-                    writeLog($this->testMode,"check_ipn_request_is_valid1-----",$data);
+                    writeLog($this->testMode,"IPN validation failed: missing required fields",$data);
                     return false;
                 }
 
-                //Verify signature todo 888
-//                $sign = md5($this->signKey.$data['merchantOrderId'].$data['coinUnit'].$data['amount'].$data['rate']);
-//                if(strtolower($sign) === strtolower($data['sign'])){
-//                    writeLog($this->testMode,"check_ipn_request_is_valid3-----",$data);
-//                    return true;
-//                }
-                writeLog($this->testMode,"check_ipn_request_is_valid2-----",$data);
-                return false;
+                // 验证签名
+                try {
+                    $signatureData = $data['data'] ?? [];
+                    $signature = $data['signature'] ?? '';
+                    
+                    // 使用平台公钥验证签名
+                    $isValid = verifySHA256withRSA(arr2SignStr($signatureData,''), $signature, $this->platformPublicKey);
+                    
+                    if (!$isValid) {
+                        writeLog($this->testMode,"IPN validation failed: invalid signature", [
+                            'signature' => $signature,
+                            'data' => $signatureData
+                        ]);
+                        return false;
+                    }
+                    
+                    writeLog($this->testMode,"IPN validation successful",$data);
+                    return true;
+                    
+                } catch (Exception $e) {
+                    writeLog($this->testMode,"IPN validation error: " . $e->getMessage(), $data);
+                    return false;
+                }
             }
 
 
@@ -339,8 +378,10 @@ function pelago_payment_init() {
                         exit('failed:no signature');
                     }
 
-                    $Verify = verifySHA256withRSA(arr2SignStr($arrJson['data'] ?? [],''),$arrJson['signature'] ?? '',$this->platformPublicKey);
+                    // 验证签名
+                    $Verify = verifySHA256withRSA(arr2SignStr($res_data['data'] ?? [],''),$res_data['signature'] ?? '',$this->platformPublicKey);
                     if(!$Verify){
+                        writeLog($this->testMode,"Signature verification failed",$res_data);
                         exit('failed:signature not match');
                     }
 
@@ -423,12 +464,13 @@ function pelago_payment_init() {
             public function check_ipn_response()
             {
                 @ob_clean();
-                /*$this->check_ipn_request_is_valid()*/
-                if (true ) {
+                
+                // 使用真正的IPN验证，而不是强制通过
+                if ($this->check_ipn_request_is_valid()) {
                     $this->successful_request();
                 } else {
-                    wp_die("PelagoPay IPN Request Failure");
-//            $this->debug_post_out( 'response result wp_die' ,  'PelagoPay IPN Request Failure');
+                    writeLog($this->testMode, "IPN validation failed", $_POST);
+                    wp_die("PelagoPay IPN Request Failure - Invalid signature or missing data");
                 }
             }
         }
