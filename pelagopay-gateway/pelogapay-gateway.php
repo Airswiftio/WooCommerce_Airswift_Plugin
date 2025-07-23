@@ -53,7 +53,7 @@ add_action( 'plugins_loaded', 'pelago_payment_init', 11 );
 function pelago_payment_init() {
     if( class_exists( 'WC_Payment_Gateway' ) ) {
         class WC_Pelago_Pay_Gateway extends WC_Payment_Gateway {
-            public $instructions,$appKey,$merchantPrikey,$callBackUrl,$merchantId;
+            public $instructions,$appKey,$merchantPrikey,$platformPublicKey,$callBackUrl,$merchantId;
 
             public function __construct() {
                 $this->id   = 'pelago_payment';
@@ -68,6 +68,8 @@ function pelago_payment_init() {
                 $this->merchantId = $this->get_option('merchantId','');
                 $this->appKey = $this->get_option('appKey','');
                 $this->merchantPrikey = $this->get_option('merchantPrikey','');
+                $this->platformPublicKey = $this->get_option('platformPublicKey','');
+
                 $this->callBackUrl = add_query_arg('wc-api', 'wc_pelagopay_gateway', home_url('/'));
                 $this->testMode = $this->get_option('testMode','');
 
@@ -137,6 +139,12 @@ function pelago_payment_init() {
                         'description' => __('Please enter your Merchant Private key.', 'pelago-pay-woo'),
                         'default' => '',
                     ),
+                    'platformPublicKey' => array(
+                        'title' => __('platformPublicKey', 'pelago-pay-woo'),
+                        'type' => 'text',
+                        'description' => __('Please enter your Platform PublicKey key.', 'pelago-pay-woo'),
+                        'default' => '',
+                    ),
                     'testMode' => array(
                         'title' => __( 'Enable/Disable', 'pelago-pay-woo'),
                         'type' => 'checkbox',
@@ -197,18 +205,24 @@ function pelago_payment_init() {
                     if(empty($this->merchantId)){
                         $msg = "PelagoPay's merchantId is not set!";
                         $order->add_order_note($msg);
-                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(60035)!')];
+                        return ['result'=>'success', 'messages'=>home_notice('The pelago plugin Settings failed(60035)!')];
                     }
                     if(empty($this->appKey)){
                         $msg = "PelagoPay's appKey is not set!";
                         $order->add_order_note($msg);
-                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(60036)!')];
+                        return ['result'=>'success', 'messages'=>home_notice('The pelago plugin Settings failed(60036)!')];
                     }
                     if(empty($this->merchantPrikey)){
                         $msg = "PelagoPay's merchantPrikey is not set!";
                         $order->add_order_note($msg);
-                        return ['result'=>'success', 'messages'=>home_notice('Something went wrong, please contact the merchant for handling(60037)!')];
+                        return ['result'=>'success', 'messages'=>home_notice('The pelago plugin Settings failed(60037)!')];
                     }
+                    if(empty($this->platformPublicKey)){
+                        $msg = "PelagoPay's platformPublicKey is not set!";
+                        $order->add_order_note($msg);
+                        return ['result'=>'success', 'messages'=>home_notice('The pelago plugin Settings failed(60038)!')];
+                    }
+
                     $total_amount = $order->get_total();
                     $paymentCurrency = strtolower($order->get_currency());
                     $d = [
@@ -317,13 +331,21 @@ function pelago_payment_init() {
                     if(!$res_data['data']){
                         exit('failed:no data');
                     }
-                    $rdata = $res_data['data'];
-                    if(!$rdata['merchantOrderId']){
+                    $arrOrderData = $res_data['data'];
+                    if(!$arrOrderData['merchantOrderId']){
                         exit('failed:no merchantOrderId');
                     }
+                    if(!$res_data['signature']){
+                        exit('failed:no signature');
+                    }
 
-                    $client_order_id = explode('_',$rdata['merchantOrderId'])[0];
-                    $order_id = $rdata['orderId'];
+                    $Verify = verifySHA256withRSA(arr2SignStr($arrJson['data'] ?? [],''),$arrJson['signature'] ?? '',$this->platformPublicKey);
+                    if(!$Verify){
+                        exit('failed:signature not match');
+                    }
+
+                    $client_order_id = explode('_',$arrOrderData['merchantOrderId'])[0];
+                    $order_id = $arrOrderData['orderId'];
                     writeLog($this->testMode,"successful_callback-----$order_id",$res_data);
 
                     $order = new WC_Order($client_order_id);
@@ -334,21 +356,21 @@ function pelago_payment_init() {
                     }
 
                     // orderStatus = 0 is Pending, 1 is Success, 2 is Timeout, 3 is Cancelled, 4 is Refund
-                    if ($rdata["orderStatus"] != 1){
-                        if ($rdata["orderStatus"] == 2) {
+                    if ($arrOrderData["orderStatus"] != 1){
+                        if ($arrOrderData["orderStatus"] == 2) {
                             $order->update_status('failed', 'Order is timeout.');
                             exit('SUCCESS');
                         }
-                        else if ($rdata["orderStatus"] == 3) {
+                        else if ($arrOrderData["orderStatus"] == 3) {
                             $order->update_status('cancelled', 'Order is cancelled.');
                             exit('SUCCESS');
                         }
-                        else if ($rdata["orderStatus"] == 4) {
+                        else if ($arrOrderData["orderStatus"] == 4) {
                             $order->add_order_note('Order is refund.');
                             exit('SUCCESS');
                         }
                         else{
-//                    $order->add_order_note('PelagoPay PaymentGateWay Error:PelagoPay Payment Status: ' . $rdata["status"]);
+//                    $order->add_order_note('PelagoPay PaymentGateWay Error:PelagoPay Payment Status: ' . $arrOrderData["status"]);
                             $order->add_order_note('PelagoPay PaymentGateWay Error : please contact the provider !');
                             exit('failed:PelagoPay PaymentGateWay Error');
                         }
@@ -356,30 +378,19 @@ function pelago_payment_init() {
 
                     // payStatus = 0 is Not Paid, 1 is Partially Paid, 2 is Fully Paid, 3 is Over Paid
                     // Query the order details. When the payStatus is 1 or 4, the order is marked as paid (completed)
-                    $url = $this->testMode === 'no'  ? "https://api.pelagotech.com/merchant-api/crypto-order/{$order_id}":"https://pg-as-staging.walkcloud.xyz/merchant-api/crypto-order/{$order_id}" ;
-                    $headers = [
-                        "Content-Type: application/json",
-                        "Merchant-APP-Key: {$this->appKey}",
-                    ];
-                    $res1 = json_decode(wGet($url,[],$headers),true);
-                    writeLog($this->testMode,"successful_callback-----$order_id--detail",$res1);
-                    if($res1['code'] !== 0){
-                        $order->add_order_note('Something went wrong, please contact the merchant for handling(60042)!');
-                        exit('failed:pg-as error');
-                    }
-                    if($res1['data']['payStatus'] == 2){
+                    if($arrOrderData['payStatus'] == 2){
                         $order->update_status('processing', 'Order has been paid.');
                         exit('SUCCESS');
                     }
-                    elseif($res1['data']['payStatus'] == 3){
+                    elseif($arrOrderData['payStatus'] == 3){
                         $order->update_status('processing', 'Order has been paid(over pay).');
                         exit('SUCCESS');
                     }
-                    elseif($res1['data']['payStatus'] == 1){
+                    elseif($arrOrderData['payStatus'] == 1){
                         $order->update_status('failed', 'Order is failed(not enough payment).');
                         exit('SUCCESS');
                     }
-                    elseif($res1['data']['payStatus'] == 0){
+                    elseif($arrOrderData['payStatus'] == 0){
                         $order->add_order_note('Not Paid !');
                         exit('SUCCESS');
                     }
@@ -683,5 +694,51 @@ function wGet($url = '', $params = [], $headers = []) {
     // 使用示例：
 // $result = wGet('https://api.example.com', ['id' => 123, 'name' => 'test']);
 // 这会请求 https://api.example.com?id=123&name=test
+}
+
+
+function arr2SignStr(array $d=[],string $separator=''):string{
+    // Remove empty values and sort for signature
+    $d = array_filter($d, "removeEmptyValues");
+    ksort($d);
+    $sData = implode($separator,$d);
+    return $sData;
+}
+
+
+
+/**
+ * RSA-SHA256 验签函数
+ * @param string $content 原始内容
+ * @param string $signature base64编码的签名
+ * @param string $publicKey0 公钥字符串（不含头尾）
+ * @return bool 验签结果，true为验签成功，false为验签失败
+ */
+function verifySHA256withRSA($content, $signature, $publicKey0 = '') {
+    if (empty($content) || empty($signature) || empty($publicKey0)) {
+        return false;
+    }
+
+    try {
+        // 格式化公钥
+        $publicKey = "-----BEGIN PUBLIC KEY-----\n" .
+            wordwrap($publicKey0, 64, "\n", true) .
+            "\n-----END PUBLIC KEY-----";
+
+        // 解码 base64 签名
+        $decodedSignature = base64_decode($signature);
+        if ($decodedSignature === false) {
+            return false;
+        }
+
+        // 验证签名
+        $result = openssl_verify($content, $decodedSignature, $publicKey, OPENSSL_ALGO_SHA256);
+
+        return $result === 1;
+    } catch (Exception $e) {
+        // 记录错误日志（如果需要）
+        // error_log("RSA verify error: " . $e->getMessage());
+        return false;
+    }
 }
 
