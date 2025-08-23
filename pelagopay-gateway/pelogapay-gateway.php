@@ -3,12 +3,12 @@
 /**
  * @wordpress-plugin
  * Plugin Name:         Pelago Payment for WooCommerce
- * Plugin URI:          https://pelago.io
+ * Plugin URI:          https://pelagotech.com
  * Author Name:         Simon
- * Author URI:          https://pelago.io
+ * Author URI:          https://pelagotech.com
  * Description:         Pay with pelago's digital QR Code payment method for WooCommerce.
- * Version:             1.0.1
- * License:             1.0.1
+ * Version:             2.0.0
+ * License:             2.0.0
  * text-domain:         wc-pelago
  */
 
