@@ -13,11 +13,24 @@ Pelago Payment for WooCommerce is a digital payment plugin designed specifically
 
 ## Installation Steps
 
-### 1. Upload Plugin Files
+### Method 1: Manual Folder Upload
 
 Upload the entire `pelagopay-gateway` folder to your WordPress website's `/wp-content/plugins/` directory.
 
-### 2. Activate Plugin
+### Method 2: Upload ZIP File via WordPress Admin
+
+1. Download the latest `pelagopay-gateway.zip` file from GitHub Release:
+   - Visit the plugin's GitHub repository
+   - Click the **Releases** tab
+   - Select the latest tag version
+   - Download the `pelagopay-gateway.zip` file
+2. Log in to your WordPress admin dashboard
+3. Navigate to **Plugins** > **Add New**
+4. Click the **Upload Plugin** button
+5. Select the downloaded `pelagopay-gateway.zip` file and click **Install Now**
+6. After installation completes, click **Activate Plugin**
+
+### Activate Plugin (For Method 1)
 
 1. Log in to your WordPress admin dashboard
 2. Navigate to **Plugins** > **Installed Plugins**

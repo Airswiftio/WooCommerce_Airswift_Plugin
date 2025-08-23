@@ -13,11 +13,24 @@ Pelago Payment for WooCommerce 是一個專為 WordPress WooCommerce 商店設�
 
 ## 安裝步驟
 
-### 1. 上傳外掛檔案
+### 方法一：手動上傳資料夾
 
 將整個 `pelagopay-gateway` 資料夾上傳到您的 WordPress 網站的 `/wp-content/plugins/` 目錄下。
 
-### 2. 啟用外掛
+### 方法二：透過 WordPress 後台上傳 ZIP 檔案
+
+1. 從 GitHub Release 下載最新版本的 `pelagopay-gateway.zip` 檔案：
+   - 造訪外掛的 GitHub 儲存庫
+   - 點擊 **Releases** 分頁
+   - 選擇最新的 tag 版本
+   - 下載 `pelagopay-gateway.zip` 檔案
+2. 登入 WordPress 後台管理介面
+3. 導航到 **外掛** > **安裝外掛**
+4. 點擊 **上傳外掛** 按鈕
+5. 選擇下載的 `pelagopay-gateway.zip` 檔案並點擊 **立即安裝**
+6. 安裝完成後點擊 **啟用外掛**
+
+### 啟用外掛（方法一使用）
 
 1. 登入 WordPress 後台管理介面
 2. 導航到 **外掛** > **已安裝的外掛**
