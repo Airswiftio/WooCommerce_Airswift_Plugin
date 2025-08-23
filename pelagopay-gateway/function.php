@@ -192,17 +192,42 @@ if (!function_exists('encodeSHA256withRSA')) {
 }
 
 if (!function_exists('wPost')) {
-    function wPost($url = '',$post_data = []){
-        $ch = curl_init(); // Initialize cURL
+    function wPost($url = '', $post_data = [], $headers = []) {
+        $ch = curl_init();
 
-        curl_setopt($ch,CURLOPT_URL,$url); // Set target URL
-        curl_setopt($ch,CURLOPT_RETURNTRANSFER,1); // Return result as string
-        curl_setopt($ch,CURLOPT_POST,1); // POST request method
-    //        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-        curl_setopt($ch,CURLOPT_POSTFIELDS,$post_data); // POST data
+        // Basic cURL options
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POST, 1);
 
-        $output = curl_exec($ch); // Execute and get HTML content
-        curl_close($ch); // Release cURL handle
+        // Set default headers
+        $default_headers = [
+            'Accept: */*',
+            'Connection: keep-alive'
+        ];
+
+        // Merge custom headers with default headers
+        $header = array_merge($default_headers, $headers);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+
+        // Handle post data - convert array to JSON if needed
+        if (is_array($post_data)) {
+            $post_data = json_encode($post_data);
+        }
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+
+        // Additional options for better handling
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+        $output = curl_exec($ch);
+
+        // Error handling
+        if (curl_errno($ch)) {
+            $output = curl_error($ch);
+        }
+
+        curl_close($ch);
         return $output;
     }
 }

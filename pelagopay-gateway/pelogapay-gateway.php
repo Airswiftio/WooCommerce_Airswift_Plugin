@@ -180,10 +180,12 @@ function pelago_payment_init() {
                     $order = wc_get_order($order_id);
                     if (!$order) {
                         writeLog($this->testMode, "Invalid order ID: $order_id", []);
-                        return ['result'=>'failure', 'messages'=>home_notice('Order does not exist, please try again!')];
+                        wc_add_notice('Order does not exist, please try again!', 'error');
+                        return ['result' => 'failure'];
                     }
                     
                     $api_url = $this->testMode === 'no' ? 'https://pgpay.weroam.xyz':'https://pgpay-stage.weroam.xyz';
+                    $pelago_api_url = $this->testMode === 'no' ? 'https://api.pelagotech.com':'https://stage-api.pelagotech.com';
 
                     // Check whether the required configuration is set
                     $required_configs = [
@@ -197,7 +199,8 @@ function pelago_payment_init() {
                         if (empty($this->$config)) {
                             $order->add_order_note("PelagoPay configuration error: $error_msg");
                             writeLog($this->testMode, "Configuration missing: $config", []);
-                            return ['result'=>'failure', 'messages'=>home_notice('Payment configuration error, please contact merchant!')];
+                            wc_add_notice('Payment configuration error, please contact merchant!', 'error');
+                            return ['result' => 'failure'];
                         }
                     }
 
@@ -222,53 +225,63 @@ function pelago_payment_init() {
                         $error_msg = isset($res['msg']) ? $res['msg'] : 'Currency conversion failed';
                         $order->add_order_note("Currency conversion failed: $error_msg");
                         writeLog($this->testMode, "Currency conversion failed", $res);
-                        return ['result'=>'failure', 'messages'=>home_notice('Currency conversion failed, please try again later!')];
+                        wc_add_notice('Currency conversion failed, please try again later!', 'error');
+                        return ['result' => 'failure'];
                     }
                     
                     $total_amount = $res['data'];
 
                     // Pre-payment preparation
-                    $currency_unit = "USDT-ERC20";
+//                    $currency_unit = "USDT-ERC20";
                     $nonce = mt_rand(100000,999999);
                     $timestamp = floor(microtime(true) * 1000);
-                    
-                    $payment_data = [
+
+                    //Create payment according to latest API documentation
+                    $da0  = [
                         'merchantId' => $this->merchantId,
-                        'merchantPrikey' => $this->merchantPrikey,
-                        'appKey' => $this->appKey,
-                        'order_id' => $order_id,
-                        'coinId' => $currency_unit,
+                        'merchantOrderId' => $order_id.'_'.time(),
                         'amount' => $total_amount,
+//                        'coinId' => $currency_unit,
                         'timestamp' => $timestamp,
                         'nonce' => $nonce,
                         'notifyUrl' => $this->callBackUrl,
                         'redirectUrl' => $order->get_checkout_order_received_url(),
                     ];
 
-                    $d = [
-                        'do'=>'POST',
-                        'url'=>$api_url."/woo/api-pre-pay",
-                        'data'=>$payment_data
+                    // Remove empty values and sort for signature
+                    $sData = arr2SignStr($da0);
+                    $sign = encodeSHA256withRSA($sData,$this->merchantPrikey);
+
+                    $url = $pelago_api_url."/merchant-api/crypto-order";
+                    $post_data = [
+                        'data' => $da0,
+                        'signature' => $sign
                     ];
-                    
-                    $res = json_decode(chttp($d), true);
-                    if (!$res || !isset($res['code']) || $res['code'] !== 1) {
-                        $error_msg = isset($res['msg']) ? $res['msg'] : 'Payment request failed';
-                        $order->add_order_note("Payment request failed: $error_msg");
-                        writeLog($this->testMode, "Payment request failed", $res);
-                        return ['result'=>'failure', 'messages'=>home_notice('Payment request failed, please try again later!')];
+
+                    // Updated header according to new API documentation
+                    $headers = [
+                        "Content-Type: application/json",
+                        "Merchant-APP-Key: {$this->appKey}",
+                    ];
+
+                    $php_result = json_decode(wPost($url,json_encode($post_data),$headers),true);
+                    if ($php_result['code'] !== 0) {
+                        $order->add_order_note($php_result['msg']);
+                        writeLog($this->testMode, $php_result['msg'], $php_result);
+                        wc_add_notice($php_result['msg'], 'error');
+                        return ['result' => 'failure'];
                     }
 
                     // Validate returned payment URL
-                    if (!isset($res['data']['url']) || empty($res['data']['url'])) {
+                    if (!isset($php_result['data']['cashierUrl']) || empty($php_result['data']['cashierUrl'])) {
                         $order->add_order_note("Payment URL retrieval failed");
-                        writeLog($this->testMode, "Payment URL missing", $res);
-                        return ['result'=>'failure', 'messages'=>home_notice('Payment link retrieval failed, please try again!')];
+                        writeLog($this->testMode, "Payment URL missing", $php_result);
+                        wc_add_notice('Payment link retrieval failed, please try again!', 'error');
+                        return ['result' => 'failure'];
                     }
-
                     return array(
                         'result'   => 'success',
-                        'redirect' => $res['data']['url'],
+                        'redirect' => $php_result['data']['cashierUrl'],
                     );
                 }
                 catch (Exception $e) {
@@ -300,7 +313,7 @@ function pelago_payment_init() {
                 $data = json_decode($json, true);
 
                 // Verify necessary fields
-                if(empty($data) || !isset($data['signature']) || !isset($data['data']['merchantOrderId']) || !isset($data['data']['coinId']) || !isset($data['data']['amount']) ) {
+                if(empty($data) || !isset($data['signature']) || !isset($data['data']['merchantOrderId'])  || !isset($data['data']['amount']) ) {
                     writeLog($this->testMode,"IPN validation failed: missing required fields",$data);
                     return false;
                 }
@@ -340,7 +353,6 @@ function pelago_payment_init() {
             public function successful_request()
             {
                 try {
-                    writeLog($this->testMode,"successful_callback-----init",[]);
                     $rjson = file_get_contents('php://input');
                     $res_data = json_decode($rjson, true);
                     if(!(isset($res_data) && !empty($res_data))){
@@ -375,7 +387,7 @@ function pelago_payment_init() {
                         exit('SUCCESS');
                     }
 
-                    // orderStatus = 0 is Pending, 1 is Success, 2 is Timeout, 3 is Cancelled, 4 is Refund
+                    // orderStatus: 0=Pending, 1=Success, 2=Timeout, 3=Cancelled, 4=Failed, 10=Exchange Pending, 11=Exchange Success, 12=Exchange Failed
                     if ($arrOrderData["orderStatus"] != 1){
                         if ($arrOrderData["orderStatus"] == 2) {
                             $order->update_status('failed', 'Order is timeout.');
@@ -443,7 +455,8 @@ function pelago_payment_init() {
             public function check_ipn_response()
             {
                 @ob_clean();
-                
+                writeLog($this->testMode,"successful_callback-----init",[]);
+
                 // Use real IPN verification instead of forcing through
                 if ($this->check_ipn_request_is_valid()) {
                     $this->successful_request();
