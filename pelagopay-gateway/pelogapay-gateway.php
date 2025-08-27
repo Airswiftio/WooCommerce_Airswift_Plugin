@@ -324,7 +324,7 @@ function pelago_payment_init() {
                     $signature = $data['signature'] ?? '';
                     
                     // Use platform public key to verify signature
-                    $isValid = verifySHA256withRSA(arr2SignStr($signatureData,''), $signature, $this->platformPublicKey);
+                    $isValid = verifySHA256withRSA(arr2SignStr($signatureData,''), $signature, str_replace('\n','',$this->platformPublicKey));
                     
                     if (!$isValid) {
                         writeLog($this->testMode,"IPN validation failed: invalid signature", [
@@ -370,7 +370,7 @@ function pelago_payment_init() {
                     }
 
                     // Verify signature
-                    $Verify = verifySHA256withRSA(arr2SignStr($res_data['data'] ?? [],''),$res_data['signature'] ?? '',$this->platformPublicKey);
+                    $Verify = verifySHA256withRSA(arr2SignStr($res_data['data'] ?? [],''),$res_data['signature'] ?? '',str_replace('\n','',$this->platformPublicKey));
                     if(!$Verify){
                         writeLog($this->testMode,"Signature verification failed",$res_data);
                         exit('failed:signature not match');
