@@ -1,8 +1,8 @@
-# Pelago Payment for WooCommerce 使用說明
+# Pelago Crypto Pay for WooCommerce 使用說明
 
 ## 外掛簡介
 
-Pelago Payment for WooCommerce 是一個專為 WordPress WooCommerce 商店設計的數位支付外掛，支援透過 Pelago 的數位 QR 碼支付方式進行線上支付。
+Pelago Crypto Pay for WooCommerce 是一個專為 WordPress WooCommerce 商店設計的數位支付外掛，支援透過 Pelago 的數位 QR 碼支付方式進行線上支付。
 
 ## 系統要求
 
@@ -34,7 +34,7 @@ Pelago Payment for WooCommerce 是一個專為 WordPress WooCommerce 商店設�
 
 1. 登入 WordPress 後台管理介面
 2. 導航到 **外掛** > **已安裝的外掛**
-3. 找到 "Pelago Payment for WooCommerce" 外掛
+3. 找到 "Pelago Crypto Pay for WooCommerce" 外掛
 4. 點擊 **啟用** 按鈕
 
 ### 3. 驗證相依性
@@ -47,18 +47,18 @@ Pelago Payment for WooCommerce 是一個專為 WordPress WooCommerce 商店設�
 
 1. 在 WordPress 後台，導航到 **WooCommerce** > **設定**
 2. 點擊 **付款** 分頁
-3. 找到 **Pelago Payment** 選項
+3. 找到 **Pelago Crypto Pay** 選項
 
 ### 2. 基本設定
 
 #### 啟用/停用
-- **啟用 Pelago Payment**：勾選此選項以啟用 Pelago 支付方式
+- **啟用 Pelago Crypto Pay**：勾選此選項以啟用 Pelago 支付方式
 
 #### 顯示設定
 - **標題**：客戶在結帳頁面看到的支付方式名稱
-  - 預設值：`Pelago Payment`
+  - 預設值：`Pelago Crypto Pay`
 - **描述**：客戶在結帳頁面看到的支付方式描述
-  - 預設值：`Pay with Pelago's digital QR Code payment method.`
+  - 預設值：`Pay with Pelago - Secure crypto payments made simple.`
 - **說明**：將新增到感謝頁面和訂單郵件中的說明文字
 
 ### 3. API 設定（重要）
@@ -92,7 +92,7 @@ Pelago Payment for WooCommerce 是一個專為 WordPress WooCommerce 商店設�
 ### 1. 客戶付款流程
 
 1. 客戶在您的商店選擇商品並新增到購物車
-2. 在結帳頁面選擇 "Pelago Payment" 作為支付方式
+2. 在結帳頁面選擇 "Pelago Crypto Pay" 作為支付方式
 3. 點擊 "下訂單" 按鈕
 4. 系統會自動進行貨幣轉換（轉換為 USD）
 5. 客戶被重新導向到 Pelago 支付頁面

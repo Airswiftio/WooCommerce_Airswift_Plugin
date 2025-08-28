@@ -1,8 +1,8 @@
-# Pelago Payment for WooCommerce 사용 가이드
+# Pelago Crypto Pay for WooCommerce 사용 가이드
 
 ## 플러그인 개요
 
-Pelago Payment for WooCommerce는 WordPress WooCommerce 스토어를 위해 특별히 설계된 디지털 결제 플러그인으로, Pelago의 디지털 QR 코드 결제 방식을 통한 온라인 결제를 지원합니다.
+Pelago Crypto Pay for WooCommerce는 WordPress WooCommerce 스토어를 위해 특별히 설계된 디지털 결제 플러그인으로, Pelago의 디지털 QR 코드 결제 방식을 통한 온라인 결제를 지원합니다.
 
 ## 시스템 요구사항
 
@@ -34,7 +34,7 @@ Pelago Payment for WooCommerce는 WordPress WooCommerce 스토어를 위해 특�
 
 1. WordPress 관리자 대시보드에 로그인
 2. **플러그인** > **설치된 플러그인**으로 이동
-3. "Pelago Payment for WooCommerce" 플러그인 찾기
+3. "Pelago Crypto Pay for WooCommerce" 플러그인 찾기
 4. **활성화** 버튼 클릭
 
 ### 3. 종속성 확인
@@ -47,18 +47,18 @@ Pelago Payment for WooCommerce는 WordPress WooCommerce 스토어를 위해 특�
 
 1. WordPress 관리자에서 **WooCommerce** > **설정**으로 이동
 2. **결제** 탭 클릭
-3. **Pelago Payment** 옵션 찾기
+3. **Pelago Crypto Pay** 옵션 찾기
 
 ### 2. 기본 설정
 
 #### 활성화/비활성화
-- **Pelago Payment 활성화**: Pelago 결제 방식을 활성화하려면 이 옵션을 체크
+- **Pelago Crypto Pay 활성화**: Pelago 결제 방식을 활성화하려면 이 옵션을 체크
 
 #### 표시 설정
 - **제목**: 고객이 체크아웃 페이지에서 볼 결제 방식 이름
-  - 기본값: `Pelago Payment`
+  - 기본값: `Pelago Crypto Pay`
 - **설명**: 고객이 체크아웃 페이지에서 볼 결제 방식 설명
-  - 기본값: `Pay with Pelago's digital QR Code payment method.`
+  - 기본값: `Pay with Pelago - Secure crypto payments made simple.`
 - **안내사항**: 감사 페이지와 주문 이메일에 추가될 안내사항
 
 ### 3. API 구성 (중요)
@@ -92,7 +92,7 @@ Pelago Payment for WooCommerce는 WordPress WooCommerce 스토어를 위해 특�
 ### 1. 고객 결제 흐름
 
 1. 고객이 스토어에서 상품을 선택하고 장바구니에 추가
-2. 체크아웃 페이지에서 결제 방식으로 "Pelago Payment" 선택
+2. 체크아웃 페이지에서 결제 방식으로 "Pelago Crypto Pay" 선택
 3. "주문하기" 버튼 클릭
 4. 시스템이 자동으로 통화 변환 수행 (USD로 변환)
 5. 고객이 Pelago 결제 페이지로 리디렉션

@@ -1,8 +1,8 @@
-# Pelago Payment for WooCommerce User Guide
+# Pelago Crypto Pay for WooCommerce User Guide
 
 ## Plugin Overview
 
-Pelago Payment for WooCommerce is a digital payment plugin designed specifically for WordPress WooCommerce stores, supporting online payments through Pelago's digital QR code payment method.
+Pelago Crypto Pay for WooCommerce is a digital payment plugin designed specifically for WordPress WooCommerce stores, supporting online payments through Pelago's digital QR code payment method.
 
 ## System Requirements
 
@@ -34,7 +34,7 @@ Upload the entire `pelagopay-gateway` folder to your WordPress website's `/wp-co
 
 1. Log in to your WordPress admin dashboard
 2. Navigate to **Plugins** > **Installed Plugins**
-3. Find "Pelago Payment for WooCommerce" plugin
+3. Find "Pelago Crypto Pay for WooCommerce" plugin
 4. Click the **Activate** button
 
 ### 3. Verify Dependencies
@@ -47,18 +47,18 @@ The plugin will automatically check if WooCommerce is installed and activated. I
 
 1. In WordPress admin, navigate to **WooCommerce** > **Settings**
 2. Click the **Payments** tab
-3. Find the **Pelago Payment** option
+3. Find the **Pelago Crypto Pay** option
 
 ### 2. Basic Settings
 
 #### Enable/Disable
-- **Enable Pelago Payment**: Check this option to enable Pelago payment method
+- **Enable Pelago Crypto Pay**: Check this option to enable Pelago Crypto Pay method
 
 #### Display Settings
 - **Title**: Payment method name that customers will see on the checkout page
-  - Default value: `Pelago Payment`
+  - Default value: `Pelago Crypto Pay`
 - **Description**: Payment method description that customers will see on the checkout page
-  - Default value: `Pay with Pelago's digital QR Code payment method.`
+  - Default value: `Pay with Pelago - Secure crypto payments made simple.`
 - **Instructions**: Instructions that will be added to the thank you page and order emails
 
 ### 3. API Configuration (Important)
@@ -92,10 +92,10 @@ The following configuration items are required parameters for the plugin to work
 ### 1. Customer Payment Flow
 
 1. Customer selects products in your store and adds them to cart
-2. On checkout page, select "Pelago Payment" as payment method
+2. On checkout page, select "Pelago Crypto Pay" as payment method
 3. Click "Place Order" button
 4. System will automatically perform currency conversion (convert to USD)
-5. Customer is redirected to Pelago payment page
+5. Customer is redirected to Pelago Crypto Pay page
 6. Customer completes payment using QR code
 7. After payment completion, automatically returns to order confirmation page
 
