@@ -231,28 +231,21 @@ function pelago_payment_init() {
                     
                     $total_amount = $res['data'];
 
-                    // Pre-payment preparation
-//                    $currency_unit = "USDT-ERC20";
-                    $nonce = mt_rand(100000,999999);
-                    $timestamp = floor(microtime(true) * 1000);
-
-                    //Create payment according to latest API documentation
+                    // Create payment order using v2.0 API
                     $da0  = [
                         'merchantId' => $this->merchantId,
                         'merchantOrderId' => $order_id.'_'.time(),
-                        'amount' => $total_amount,
-//                        'coinId' => $currency_unit,
-                        'timestamp' => $timestamp,
-                        'nonce' => $nonce,
+                        'orderAmount' => $total_amount,
+                        'orderCurrency' => 'USD',
                         'notifyUrl' => $this->callBackUrl,
-                        'redirectUrl' => $order->get_checkout_order_received_url(),
+                        // 'redirectUrl' => $order->get_checkout_order_received_url(),
                     ];
 
                     // Remove empty values and sort for signature
                     $sData = arr2SignStr($da0);
                     $sign = encodeSHA256withRSA($sData,$this->merchantPrikey);
 
-                    $url = $pelago_api_url."/merchant-api/crypto-order";
+                    $url = $pelago_api_url."/openapi/v2.0/order/create";
                     $post_data = [
                         'data' => $da0,
                         'signature' => $sign
@@ -261,7 +254,7 @@ function pelago_payment_init() {
                     // Updated header according to new API documentation
                     $headers = [
                         "Content-Type: application/json",
-                        "Merchant-APP-Key: {$this->appKey}",
+                        "X-App-Key: {$this->appKey}",
                     ];
 
                     $php_result = json_decode(wPost($url,json_encode($post_data),$headers),true);
