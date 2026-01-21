@@ -190,7 +190,7 @@ function pelago_payment_init() {
                     }
                     
                     $api_url = $this->testMode === 'no' ? 'https://pgpay.weroam.xyz':'https://pgpay-stage.weroam.xyz';
-                    $pelago_api_url = $this->testMode === 'no' ? 'https://api.pelagotech.com':'https://test-api.pelagotech.com';
+                    $pelago_api_url = $this->testMode === 'no' ? 'https://api.pelagotech.com':'https://stage-api.pelagotech.com';
 
                     // Check whether the required configuration is set
                     $required_configs = [
