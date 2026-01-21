@@ -4,7 +4,7 @@
  * @wordpress-plugin
  * Plugin Name:         Pelago Pay for WooCommerce
  * Plugin URI:          https://pelagotech.com
- * Description:         Pay with Pelago - Secure payments made simple for WooCommerce.
+ * Description:         Pelago Pay-One Platform. All Payments. Your Way.
  * Version:             3.0.0
  * Author:              Pelago
  * Author URI:          https://pelagotech.com
@@ -43,8 +43,8 @@ function pelago_payment_init() {
                 $this->id   = 'pelago_payment';
 //                $this->icon = apply_filters( 'woocommerce_pelago_icon',plugins_url('assets/pelago_logo.png', __FILE__ ) );
                 $this->has_fields = false;
-                $this->method_title = __( 'Pelago Crypto Pay', 'pelago-pay-woo');
-                $this->method_description = __( 'Pelago QR code digital payment method.', 'pelago-pay-woo');
+                $this->method_title = __( 'Pelago Pay', 'pelago-pay-woo');
+                $this->method_description = __( 'Pelago Pay-One Platform. All Payments. Your Way.', 'pelago-pay-woo');
 
                 $this->title = $this->get_option( 'title' );
                 $this->description = $this->get_option( 'description' );
@@ -81,20 +81,20 @@ function pelago_payment_init() {
                     'enabled' => array(
                         'title' => __( 'Enable/Disable', 'pelago-pay-woo'),
                         'type' => 'checkbox',
-                        'label' => __( 'Enable or Disable Pelago Crypto Pay', 'pelago-pay-woo'),
+                        'label' => __( 'Enable or Disable Pelago Pay', 'pelago-pay-woo'),
                         'default' => 'no'
                     ),
                     'title' => array(
                         'title' => __( 'Title', 'pelago-pay-woo'),
                         'type' => 'text',
-                        'default' => __( 'Pelago Crypto Pay', 'pelago-pay-woo'),
+                        'default' => __( 'Pelago Pay', 'pelago-pay-woo'),
                         'desc_tip' => true,
                         'description' => __( 'Title that customers will see in the checkout page.', 'pelago-pay-woo')
                     ),
                     'description' => array(
                         'title' => __( 'Description', 'pelago-pay-woo'),
                         'type' => 'textarea',
-                        'default' => __( "Pay with Pelago - Secure crypto payments made simple.", 'pelago-pay-woo'),
+                        'default' => __( "Pelago Pay-One Platform. All Payments. Your Way.", 'pelago-pay-woo'),
                         'desc_tip' => true,
                         'description' => __( 'Description customers will see in the checkout page.', 'pelago-pay-woo')
                     ),
