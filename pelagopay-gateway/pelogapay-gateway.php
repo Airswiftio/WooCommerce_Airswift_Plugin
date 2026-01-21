@@ -2,14 +2,19 @@
 
 /**
  * @wordpress-plugin
- * Plugin Name:         Pelago Crypto Pay for WooCommerce
+ * Plugin Name:         Pelago Pay for WooCommerce
  * Plugin URI:          https://pelagotech.com
- * Author Name:         Simon
+ * Description:         Pay with Pelago - Secure payments made simple for WooCommerce.
+ * Version:             3.0.0
+ * Author:              Pelago
  * Author URI:          https://pelagotech.com
- * Description:         Pay with Pelago - Secure crypto payments made simple for WooCommerce.
- * Version:             2.0.0
- * License:             2.0.0
- * text-domain:         wc-pelago
+ * License:             GPL-2.0-or-later
+ * License URI:         https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:         wc-pelago
+ * Requires at least:   5.8
+ * Requires PHP:        7.4
+ * WC requires at least: 6.0
+ * WC tested up to:     8.0
  */
 
 
