@@ -271,7 +271,7 @@ function pelago_payment_init() {
                     }
 
                     // Validate returned payment URL
-                    if (!isset($php_result['data']['cashierUrl']) || empty($php_result['data']['cashierUrl'])) {
+                    if (!isset($php_result['data']['redirectUrl']) || empty($php_result['data']['redirectUrl'])) {
                         $order->add_order_note("Payment URL retrieval failed");
                         writeLog($this->testMode, "Payment URL missing", $php_result);
                         wc_add_notice('Payment link retrieval failed, please try again!', 'error');
@@ -279,7 +279,7 @@ function pelago_payment_init() {
                     }
                     return array(
                         'result'   => 'success',
-                        'redirect' => $php_result['data']['cashierUrl'],
+                        'redirect' => $php_result['data']['redirectUrl'],
                     );
                 }
                 catch (Exception $e) {
