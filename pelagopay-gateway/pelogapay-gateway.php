@@ -311,7 +311,7 @@ function pelago_payment_init() {
                 $data = json_decode($json, true);
 
                 // Verify necessary fields
-                if(empty($data) || !isset($data['signature']) || !isset($data['data']['merchantOrderId'])  || !isset($data['data']['amount']) ) {
+                if(empty($data) || !isset($data['signature']) ) {
                     writeLog($this->testMode,"IPN validation failed: missing required fields",$data);
                     return false;
                 }
@@ -375,8 +375,7 @@ function pelago_payment_init() {
                     }
 
                     $client_order_id = explode('_',$arrOrderData['merchantOrderId'])[0];
-                    $order_id = $arrOrderData['orderId'];
-                    writeLog($this->testMode,"successful_callback-----$order_id",$res_data);
+                    writeLog($this->testMode,"successful_callback-----",$res_data);
 
                     $order = new WC_Order($client_order_id);
 
@@ -385,7 +384,33 @@ function pelago_payment_init() {
                         exit('SUCCESS');
                     }
 
-                    // orderStatus: 0=Pending, 1=Success, 2=Timeout, 3=Cancelled, 4=Failed, 10=Exchange Pending, 11=Exchange Success, 12=Exchange Failed
+                    // Determine payment type: fiat (has scenarioCode & pelagoOrderId) or crypto
+                    $isFiatPayment = !empty($arrOrderData['scenarioCode']) && !empty($arrOrderData['pelagoOrderId']);
+
+                    if ($isFiatPayment) {
+                        // Fiat payment orderStatus: 0=Created, 1=Pending, 2=Success, 3=Timeout, 4=Cancelled
+                        $fiatStatus = intval($arrOrderData["orderStatus"]);
+                        switch ($fiatStatus) {
+                            case 2:
+                                $order->update_status('processing', 'Fiat payment successful.');
+                                exit('SUCCESS');
+                            case 3:
+                                $order->update_status('failed', 'Fiat payment timeout.');
+                                exit('SUCCESS');
+                            case 4:
+                                $order->update_status('cancelled', 'Fiat payment cancelled.');
+                                exit('SUCCESS');
+                            case 0:
+                            case 1:
+                                $order->add_order_note('Fiat payment pending (status: ' . $fiatStatus . ').');
+                                exit('SUCCESS');
+                            default:
+                                $order->add_order_note('PelagoPay Fiat Gateway Error: unknown status ' . $fiatStatus);
+                                exit('failed:PelagoPay Fiat Gateway Error');
+                        }
+                    }
+
+                    // Crypto payment orderStatus: 0=Pending, 1=Success, 2=Timeout, 3=Cancelled, 4=Failed, 10=Exchange Pending, 11=Exchange Success, 12=Exchange Failed
                     if ($arrOrderData["orderStatus"] != 1){
                         if ($arrOrderData["orderStatus"] == 2) {
                             $order->update_status('failed', 'Order is timeout.');
@@ -400,14 +425,12 @@ function pelago_payment_init() {
                             exit('SUCCESS');
                         }
                         else{
-//                    $order->add_order_note('PelagoPay PaymentGateWay Error:PelagoPay Payment Status: ' . $arrOrderData["status"]);
                             $order->add_order_note('PelagoPay PaymentGateWay Error : please contact the provider !');
                             exit('failed:PelagoPay PaymentGateWay Error');
                         }
                     }
 
                     // payStatus = 0 is Not Paid, 1 is Partially Paid, 2 is Fully Paid, 3 is Over Paid
-                    // Query the order details. When the payStatus is 1 or 4, the order is marked as paid (completed)
                     if($arrOrderData['payStatus'] == 2){
                         $order->update_status('processing', 'Order has been paid.');
                         exit('SUCCESS');
