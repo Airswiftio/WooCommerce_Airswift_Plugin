@@ -5,7 +5,7 @@
  * Plugin Name:         Pelago Pay for WooCommerce
  * Plugin URI:          https://pelagotech.com
  * Description:         Pelago Pay-One Platform. All Payments. Your Way.
- * Version:             3.0.0
+ * Version:             3.0.2
  * Author:              Pelago
  * Author URI:          https://pelagotech.com
  * License:             GPL-2.0-or-later
